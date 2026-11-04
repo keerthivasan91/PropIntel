@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { env } from './config/env.js';
 import healthRoutes from './routes/health.routes.js';
+import leadRoutes from './routes/lead.routes.js';
 import { notFoundHandler } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
@@ -38,6 +39,8 @@ app.get('/', (_req, res) => {
   res.json({ name: 'PropIntel API', health: '/api/health' });
 });
 
-app.use('/api', apiLimiter, healthRoutes);
+app.use('/api', apiLimiter);
+app.use('/api', healthRoutes);
+app.use('/api/leads', leadRoutes);
 app.use(notFoundHandler);
 app.use(errorHandler);
