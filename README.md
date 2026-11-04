@@ -3,7 +3,6 @@
 AI-powered real-estate lead intelligence and sales workflow workspace.
 
 > Assignment: Masal AI – AI FDE Intern (Round 2)
-> Current milestone: Gemini lead analysis and deterministic prioritization. Contextual chat and Sales Action Workspace are planned next.
 
 ## Product goal
 
@@ -27,19 +26,21 @@ The backend owns validation, lead scoring, context assembly, policy checks and d
 - Search, status filtering and pagination for leads
 - Transactional activity logging on lead creation and updates
 - Fictional Northstar Homes demo policy documents
-- Gemini-powered structured lead analysis
-- Backend semantic validation of model output
-- Deterministic 100-point lead score with an explainable breakdown
+- Gemini-powered structured lead analysis with backend response validation
+- Deterministic 100-point lead score with explainable breakdown
 - Analysis version history in MySQL
-- AI analysis rate limit
+- Lead-specific conversational assistant using company, lead, latest-analysis and saved chat context
+- Persistent conversation history per lead
+- Structured assistant decisions, policy source references and missing-information reporting
+- Basic deterministic blocking for obvious prompt-extraction and out-of-scope requests
 
 ## Run locally
 
 ### Prerequisites
 
-- Node.js 20.19+ and npm (or pnpm)
+- Node.js 20.19+ and npm or pnpm
 - MySQL 8+
-- A Gemini API key from Google AI Studio for analysis features
+- A Gemini API key from Google AI Studio for model-backed features
 
 ### 1. Clone and install
 
@@ -81,36 +82,35 @@ The Vite development server proxies /api requests to Express.
     npm test
     npm run build
 
-## Lead API overview
+## API overview
 
 - GET /api/leads
 - POST /api/leads
 - GET /api/leads/:id
 - PATCH /api/leads/:id
 - GET /api/leads/summary
-
-## AI API overview
-
 - POST /api/leads/:id/analyze
 - GET /api/leads/:id/analyses
-
-The selected lead's details and the fictional Northstar Homes policy pack are sent to Gemini from the backend. The response is validated and stored as a new analysis version.
+- POST /api/leads/:id/chat
+- GET /api/leads/:id/conversations
 
 ## Lead score
 
 The 100-point score is calculated deterministically by the backend: buying timeline (30), budget clarity (25), requirement clarity (25) and engagement signals (20). Priority bands are Hot (75–100), Warm (45–74) and Cold (0–44). It is an internal prioritization aid, not a purchase probability. See docs/lead-scoring.md.
 
+Re-analysing unchanged lead details can produce the same result. Previous versions are retained for traceability; update the lead when new customer information is available.
+
 ## AI context and data handling
 
-The included Northstar Homes policies are fictional demo content, not Masal AI policies. Customer content is treated as data, not as instructions. AI may be inaccurate; verify property facts and review suggested responses before using them. Use synthetic data only. Do not enter real customer or sensitive personal information into a public demo.
+The assistant assembles the selected lead, latest analysis, approved demo policy documents and the most recent 12 saved messages for that lead. Full conversation history remains in MySQL. The included Northstar Homes policies are fictional demo content, not Masal AI policies.
 
-Conversation memory and the Sales Action Workspace remain planned milestones.
+Customer and conversation content are untrusted reference data, not instructions. Prompt and scope checks reduce risk but cannot guarantee that an LLM will never produce an incorrect response. Verify property facts, review suggestions and use synthetic data only. Do not enter real customer or sensitive personal information into the public demo.
 
 ## Implementation status
 
-Implemented: project foundation, responsive dashboard, light/dark theme, MySQL schema, lead CRUD APIs and UI, search/filter/pagination, activity logging, Gemini lead analysis, response validation, deterministic scoring and analysis history.
+Implemented: project foundation, responsive dashboard, light/dark theme, MySQL schema, lead CRUD APIs and UI, search/filter/pagination, activity logging, Gemini lead analysis, response validation, deterministic scoring, analysis history, lead-specific context-aware assistant, persistent conversations and basic domain restrictions.
 
-Next: persistent company-context conversations and Sales Action Workspace.
+Next: Sales Action Workspace, task management, activity timeline UI and final integration/testing.
 
 ## AI usage disclosure
 

@@ -57,34 +57,51 @@ Updates supplied lead fields. Status and text fields are validated. Budget range
 
 Generates a structured Gemini analysis and persists it as a new analysis version. The backend calculates the lead score independently and records an activity event.
 
-No request body is required. The API requires a valid lead ID, a configured MySQL database, a valid backend-only GEMINI_API_KEY, and access to the configured GEMINI_MODEL.
+### GET /api/leads/:id/analyses
 
-Successful response shape:
+Returns up to 20 saved analyses, newest version first.
+
+## Conversational assistant endpoints
+
+### POST /api/leads/:id/chat
+
+Request:
+
+    {
+      "message": "Can we promise this customer a discount?"
+    }
+
+The backend loads the selected lead, latest saved analysis, approved fictional company policies and up to 12 recent messages for that lead. It applies basic deterministic scope checks, sends the context to Gemini, validates the structured response and saves the user/assistant turn in a database transaction.
+
+Successful response:
 
     {
       "data": {
-        "analysis": {
-          "id": "1",
-          "lead_id": "1",
-          "summary": "Customer summary",
-          "customer_intent": "Customer intent",
-          "key_requirements": ["3BHK apartment"],
-          "objections": [],
-          "recommended_action": "Confirm preferred possession date.",
-          "suggested_response": "Thank you for sharing your requirements...",
-          "lead_score": 82,
-          "priority": "hot",
-          "score_breakdown": {},
-          "model_name": "gemini-3.8-flash",
-          "analysis_version": 1,
-          "created_at": "2026-11-04T12:00:00.000Z"
-        }
+        "reply": {
+          "decision": "needs_policy_clarification",
+          "answer": "The demo policy requires authorized approval before a discount is promised.",
+          "supporting_policy_ids": ["sales_policies"],
+          "missing_information": ["Whether an authorized discount approval exists"],
+          "suggested_action": "Confirm approval with an authorized representative."
+        },
+        "messages": [
+          { "id": "11", "role": "user", "message": "Can we promise this customer a discount?" },
+          { "id": "12", "role": "assistant", "message": "The demo policy requires authorized approval before a discount is promised." }
+        ]
       }
     }
 
-### GET /api/leads/:id/analyses
+Decisions:
+- allowed
+- out_of_scope
+- needs_policy_clarification
+- escalate
 
-Returns up to 20 saved analyses, newest version first. Returns an empty array when the lead has not yet been analysed.
+The endpoint accepts messages up to 2,000 characters and is limited to 12 requests per 15 minutes per client IP. Direct prompt-extraction attempts and clearly unrelated requests receive a deterministic refusal without a Gemini call.
+
+### GET /api/leads/:id/conversations
+
+Returns up to 100 saved messages for the requested lead, oldest first. The query is always filtered by that lead ID.
 
 ## Standard error response
 
@@ -99,12 +116,8 @@ Relevant AI errors include AI_NOT_CONFIGURED, AI_RATE_LIMITED, AI_MODEL_ERROR, A
 
 ## Planned endpoints
 
-The following endpoints are not implemented yet:
-
 | Method | Endpoint | Purpose |
 |---|---|---|
-| POST | /api/leads/:id/chat | Ask the contextual assistant |
-| GET | /api/leads/:id/conversations | Retrieve conversation history |
 | POST | /api/leads/:id/tasks | Create a follow-up task |
 | GET | /api/tasks | List follow-up tasks |
 | PATCH | /api/tasks/:id | Update a task |

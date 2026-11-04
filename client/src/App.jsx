@@ -4,8 +4,10 @@ import {
   createLead,
   fetchLead,
   fetchLeadAnalyses,
+  fetchLeadConversation,
   fetchLeadSummary,
   fetchLeads,
+  sendLeadMessage,
   updateLead
 } from './services/api.js';
 
@@ -193,6 +195,141 @@ function LeadForm({ onClose, onSubmit, saving }) {
   );
 }
 
+const policyLabels = {
+  company_profile: 'Company profile',
+  sales_policies: 'Sales policies',
+  communication_guidelines: 'Communication guidelines',
+  escalation_rules: 'Escalation rules'
+};
+
+function LeadChat({ leadId }) {
+  const [messages, setMessages] = useState([]);
+  const [draft, setDraft] = useState('');
+  const [loadingHistory, setLoadingHistory] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
+  const [latestReply, setLatestReply] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    setLoadingHistory(true);
+    setError('');
+    setLatestReply(null);
+
+    fetchLeadConversation(leadId)
+      .then((result) => {
+        if (active) setMessages(result.messages ?? []);
+      })
+      .catch((loadError) => {
+        if (active) setError(loadError.message);
+      })
+      .finally(() => {
+        if (active) setLoadingHistory(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [leadId]);
+
+  async function submitMessage(event) {
+    event.preventDefault();
+    const message = draft.trim();
+    if (!message || sending) return;
+
+    setSending(true);
+    setError('');
+
+    try {
+      const result = await sendLeadMessage(leadId, message);
+      setMessages((current) => [...current, ...result.messages]);
+      setLatestReply(result.reply);
+      setDraft('');
+    } catch (sendError) {
+      setError(sendError.message);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <section className="chat-panel" aria-labelledby="lead-chat-title">
+      <div className="chat-header">
+        <div className="chat-title-wrap">
+          <span className="chat-icon"><Icon name="sparkles" size={17} /></span>
+          <div>
+            <span className="eyebrow">LEAD-SPECIFIC CONTEXT</span>
+            <h3 id="lead-chat-title">PropIntel assistant</h3>
+            <p>Uses this lead, the latest analysis and Northstar Homes demo policies.</p>
+          </div>
+        </div>
+        <span className="chat-memory-label">SAVED HISTORY</span>
+      </div>
+
+      <div className="chat-messages" role="log" aria-live="polite" aria-label="Conversation history">
+        {loadingHistory ? (
+          <div className="chat-empty"><span className="loader" /> Loading conversation…</div>
+        ) : messages.length === 0 ? (
+          <div className="chat-empty">
+            <strong>Start with this lead</strong>
+            <p>Ask about the customer's requirements, a sales policy or a suitable follow-up. The conversation is saved against this lead.</p>
+            <div className="chat-suggestions">
+              <button type="button" onClick={() => setDraft('What are the customer’s main requirements?')}>Summarize requirements</button>
+              <button type="button" onClick={() => setDraft('Can we promise this customer a discount?')}>Check discount policy</button>
+              <button type="button" onClick={() => setDraft('What should I clarify in the next call?')}>Prepare next call</button>
+            </div>
+          </div>
+        ) : (
+          messages.map((item) => (
+            <div className={'chat-message-row ' + (item.role === 'user' ? 'from-user' : 'from-assistant')} key={item.id}>
+              <span className="chat-message-role">{item.role === 'user' ? 'YOU' : 'PROPINTEL'}</span>
+              <div className="chat-message-bubble">{item.message}</div>
+            </div>
+          ))
+        )}
+        {sending && <div className="chat-thinking"><span className="loader" /> Reviewing lead and company context…</div>}
+      </div>
+
+      {latestReply && (
+        <div className="chat-reply-meta">
+          <span className={'chat-decision decision-' + latestReply.decision}>{latestReply.decision.replaceAll('_', ' ')}</span>
+          {latestReply.supporting_policy_ids?.length > 0 && (
+            <div className="chat-policy-sources">
+              <span>Context:</span>
+              {latestReply.supporting_policy_ids.map((id) => <span className="chat-policy-chip" key={id}>{policyLabels[id] ?? id}</span>)}
+            </div>
+          )}
+          {latestReply.missing_information?.length > 0 && (
+            <div className="chat-missing-info"><strong>Information to confirm:</strong> {latestReply.missing_information.join('; ')}</div>
+          )}
+          {latestReply.suggested_action && <div className="chat-suggested-action"><strong>Suggested action:</strong> {latestReply.suggested_action}</div>}
+        </div>
+      )}
+
+      {error && <div className="inline-error" role="alert">{error}</div>}
+
+      <form className="chat-compose" onSubmit={submitMessage}>
+        <textarea
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          maxLength={2000}
+          rows={2}
+          placeholder="Ask about this lead or the demo company's sales policies…"
+          aria-label="Message the PropIntel assistant"
+          disabled={sending || loadingHistory}
+        />
+        <div className="chat-compose-footer">
+          <span>{draft.length}/2000 · Responses are suggestions for salesperson review</span>
+          <button className="button-primary" type="submit" disabled={sending || loadingHistory || !draft.trim()}>
+            {sending ? 'Sending…' : 'Send message'} <Icon name="arrow" size={14} />
+          </button>
+        </div>
+      </form>
+      <p className="chat-disclaimer">The assistant is restricted to real-estate sales support. It may be inaccurate; verify facts and follow authorized company processes.</p>
+    </section>
+  );
+}
+
 function LeadDetails({ lead, onClose, onStatusChange, updating }) {
   const [analyses, setAnalyses] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
@@ -271,6 +408,7 @@ function LeadDetails({ lead, onClose, onStatusChange, updating }) {
               <span className="eyebrow">GEMINI-POWERED · HUMAN REVIEW</span>
               <h3>AI lead intelligence</h3>
               <p>Analysis is grounded in the lead and the fictional Northstar Homes demo policies.</p>
+              <p className="analysis-repeat-note">Re-analysing unchanged lead information can produce the same result. Versions are retained for traceability; update the lead when new customer information is available.</p>
             </div>
             <button className="button-primary" type="button" onClick={runAnalysis} disabled={analysisLoading || historyLoading}>
               <Icon name="sparkles" size={15} />
@@ -347,7 +485,7 @@ function LeadDetails({ lead, onClose, onStatusChange, updating }) {
                   <summary>Previous analyses ({analyses.length - 1})</summary>
                   {analyses.slice(1).map((item) => (
                     <div className="analysis-history-row" key={item.id}>
-                      <div><strong>Version {item.analysis_version}</strong><small>{formatDate(item.created_at)} · {item.model_name}</small></div>
+                      <div><strong>Version {item.analysis_version}</strong><small>{formatDate(item.created_at)} · {item.model_name}</small><small className="history-summary">{item.summary}</small></div>
                       <span className={'priority-label priority-' + item.priority}>{item.priority.toUpperCase()} · {item.lead_score}/100</span>
                     </div>
                   ))}
@@ -364,6 +502,8 @@ function LeadDetails({ lead, onClose, onStatusChange, updating }) {
 
           <p className="analysis-disclaimer">AI output may be inaccurate. Verify property facts and review suggested responses before using them. The priority score is an internal sorting aid, not a probability of purchase.</p>
         </section>
+
+        <LeadChat key={lead.id} leadId={lead.id} />
 
         <label className="detail-status-label">Update lead status
           <select value={lead.status} disabled={updating} onChange={(event) => onStatusChange(lead.id, event.target.value)}>

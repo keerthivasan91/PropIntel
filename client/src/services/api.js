@@ -62,3 +62,15 @@ export function analyzeLead(id) {
 export function fetchLeadAnalyses(id) {
   return request('/api/leads/' + encodeURIComponent(id) + '/analyses');
 }
+
+
+export function fetchLeadConversation(id) {
+  return request('/api/leads/' + encodeURIComponent(id) + '/conversations');
+}
+
+export function sendLeadMessage(id, message) {
+  return request('/api/leads/' + encodeURIComponent(id) + '/chat', {
+    method: 'POST',
+    body: JSON.stringify({ message })
+  });
+}
