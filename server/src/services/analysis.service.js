@@ -6,6 +6,7 @@ import { getLeadById } from './lead.service.js';
 import { calculateLeadScore } from './scoring.service.js';
 import { validateAnalysisPayload } from './analysis.validator.js';
 import { httpError } from '../utils/httpError.js';
+import { GEMINI_HTTP_OPTIONS, mapGeminiProviderError } from './gemini.utils.js';
 
 const ANALYSIS_SCHEMA = {
   type: 'object',
@@ -114,7 +115,8 @@ async function requestGemini(prompt) {
         responseMimeType: 'application/json',
         responseJsonSchema: ANALYSIS_SCHEMA,
         temperature: 0.2,
-        maxOutputTokens: 1200
+        maxOutputTokens: 1200,
+        httpOptions: GEMINI_HTTP_OPTIONS
       }
     });
 
@@ -124,17 +126,8 @@ async function requestGemini(prompt) {
 
     return JSON.parse(response.text);
   } catch (error) {
-    console.error('[PropIntel Gemini analysis]', error);
-
-    if (error?.status === 429 || error?.code === 429) {
-      throw httpError(429, 'AI_RATE_LIMITED', 'Gemini rate limit reached. Check your API quota and try again later.');
-    }
-
-    if (error?.status === 400 || error?.status === 404) {
-      throw httpError(502, 'AI_MODEL_ERROR', 'Gemini rejected the configured model or request. Check GEMINI_MODEL and model access.');
-    }
-
-    throw httpError(502, 'AI_PROVIDER_ERROR', 'Gemini analysis could not be completed. Check the server configuration and try again.');
+    if (error.status && error.code) throw error;
+    throw mapGeminiProviderError(error, 'analysis');
   }
 }
 

@@ -90,3 +90,17 @@ The 100-point score is calculated deterministically by the backend and stored wi
 ## Limitations
 
 The scoring rules are product heuristics, not a trained conversion model. AI output can be inaccurate despite schema and semantic validation. The demo policy pack is fictional and is not Masal AI's internal policy. Use synthetic data only.
+
+
+## Provider resilience
+
+Both chat and lead-analysis calls configure the JavaScript SDK's per-request HTTP retry policy:
+
+- Four total attempts (one initial request plus up to three retries).
+- Exponential backoff starting at 1 second, capped at 4 seconds, with jitter.
+- Retries for 408, 500, 502, 503 and 504 responses.
+- 429 is not automatically retried because it can indicate a hard quota limit as well as a temporary rate limit.
+
+If a transient provider error remains after the retry attempts, the API returns HTTP 503 with `AI_TEMPORARILY_UNAVAILABLE`. If Gemini returns 429, the API returns `AI_RATE_LIMITED` and recommends checking the API project's usage/quota.
+
+A failed chat response is not written to the conversation table. The frontend keeps the unsent draft so the user can retry. A successful response persists the user and assistant messages in the same transaction.

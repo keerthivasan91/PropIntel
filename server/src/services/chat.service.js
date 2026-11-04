@@ -5,6 +5,7 @@ import { env } from '../config/env.js';
 import { getLeadById } from './lead.service.js';
 import { httpError } from '../utils/httpError.js';
 import { getDeterministicChatGuard, validateChatInput, validateChatResponse } from './chat.validator.js';
+import { GEMINI_HTTP_OPTIONS, mapGeminiProviderError } from './gemini.utils.js';
 
 const HISTORY_LIMIT = 12;
 const POLICY_DOCUMENTS = [
@@ -201,7 +202,8 @@ async function generateReply({ lead, history, message }) {
         responseMimeType: 'application/json',
         responseJsonSchema: CHAT_SCHEMA,
         temperature: 0.2,
-        maxOutputTokens: 1000
+        maxOutputTokens: 1000,
+        httpOptions: GEMINI_HTTP_OPTIONS
       }
     });
 
@@ -212,15 +214,7 @@ async function generateReply({ lead, history, message }) {
     return validateChatResponse(JSON.parse(response.text));
   } catch (error) {
     if (error.status && error.code) throw error;
-
-    console.error('[PropIntel Gemini chat]', error);
-    if (error?.status === 429 || error?.code === 429) {
-      throw httpError(429, 'AI_RATE_LIMITED', 'Gemini rate limit reached. Check your API quota and try again later.');
-    }
-    if (error?.status === 400 || error?.status === 404) {
-      throw httpError(502, 'AI_MODEL_ERROR', 'Gemini rejected the configured model or request. Check GEMINI_MODEL and model access.');
-    }
-    throw httpError(502, 'AI_PROVIDER_ERROR', 'The assistant could not complete this reply. Check the backend logs and try again.');
+    throw mapGeminiProviderError(error, 'chat');
   }
 }
 
