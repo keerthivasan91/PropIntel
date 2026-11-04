@@ -7,6 +7,12 @@ import {
   fetchLeadConversation,
   fetchLeadSummary,
   fetchLeads,
+  fetchLeadTasks,
+  fetchLeadActivities,
+  fetchTasks,
+  fetchTaskSummary,
+  createTask,
+  updateTask,
   sendLeadMessage,
   updateLead
 } from './services/api.js';
@@ -330,6 +336,328 @@ function LeadChat({ leadId }) {
   );
 }
 
+function formatDateTime(value) {
+  if (!value) return 'No due date';
+  const raw = String(value);
+  const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T') + 'Z';
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return 'No due date';
+  return new Intl.DateTimeFormat('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(date);
+}
+
+function taskIsOverdue(task) {
+  if (!task.due_at || task.status !== 'pending') return false;
+  const raw = String(task.due_at);
+  const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T') + 'Z';
+  const due = new Date(normalized);
+  return !Number.isNaN(due.getTime()) && due.getTime() < Date.now();
+}
+
+function TaskStatus({ status, overdue = false }) {
+  const label = overdue ? 'Overdue' : status.charAt(0).toUpperCase() + status.slice(1);
+  return <span className={'task-status task-' + (overdue ? 'overdue' : status)}>{label}</span>;
+}
+
+function LeadTaskSection({ leadId }) {
+  const [tasks, setTasks] = useState([]);
+  const [activities, setActivities] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [updatingId, setUpdatingId] = useState('');
+  const [showComposer, setShowComposer] = useState(false);
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [dueAt, setDueAt] = useState('');
+  const [error, setError] = useState('');
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [taskResult, activityResult] = await Promise.all([
+        fetchLeadTasks(leadId),
+        fetchLeadActivities(leadId)
+      ]);
+      setTasks(taskResult.tasks ?? []);
+      setActivities(activityResult.activities ?? []);
+      setError('');
+    } catch (loadError) {
+      setError(loadError.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [leadId]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  async function submitTask(event) {
+    event.preventDefault();
+    if (!title.trim()) return;
+    setSaving(true);
+    setError('');
+    try {
+      await createTask(leadId, {
+        title: title.trim(),
+        description: description.trim() || null,
+        due_at: dueAt ? new Date(dueAt).toISOString() : null
+      });
+      setTitle('');
+      setDescription('');
+      setDueAt('');
+      setShowComposer(false);
+      await refresh();
+    } catch (saveError) {
+      setError(saveError.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function changeTaskStatus(id, status) {
+    setUpdatingId(id);
+    setError('');
+    try {
+      await updateTask(id, { status });
+      await refresh();
+    } catch (updateError) {
+      setError(updateError.message);
+    } finally {
+      setUpdatingId('');
+    }
+  }
+
+  const activityLabel = (type) => String(type).replaceAll('_', ' ');
+
+  return (
+    <section className="lead-task-section">
+      <div className="lead-task-heading">
+        <div>
+          <span className="eyebrow">SALES ACTION WORKSPACE</span>
+          <h3>Follow-ups & activity</h3>
+          <p>Tasks are saved against this lead and appear in the sales workspace.</p>
+        </div>
+        <button className="button-primary" type="button" onClick={() => setShowComposer((value) => !value)}>
+          <Icon name="plus" size={15} /> {showComposer ? 'Close' : 'Add task'}
+        </button>
+      </div>
+
+      {showComposer && (
+        <form className="task-composer" onSubmit={submitTask}>
+          <label>Task title
+            <input value={title} onChange={(event) => setTitle(event.target.value)} maxLength="180" required placeholder="e.g. Call customer to confirm site visit" />
+          </label>
+          <label>Description
+            <textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength="2000" rows="2" placeholder="Optional notes for the salesperson" />
+          </label>
+          <label>Due date and time
+            <input type="datetime-local" value={dueAt} onChange={(event) => setDueAt(event.target.value)} />
+          </label>
+          <div className="task-composer-actions">
+            <button className="button-secondary" type="button" onClick={() => setShowComposer(false)} disabled={saving}>Cancel</button>
+            <button className="button-primary" type="submit" disabled={saving || !title.trim()}>{saving ? 'Saving…' : 'Create task'}</button>
+          </div>
+        </form>
+      )}
+
+      {error && <div className="inline-error" role="alert">{error}</div>}
+
+      <div className="lead-task-columns">
+        <div className="lead-task-list">
+          <div className="subsection-heading"><strong>Tasks</strong><span>{tasks.length}</span></div>
+          {loading ? <div className="task-small-state"><span className="loader" /> Loading tasks…</div> :
+            tasks.length === 0 ? <div className="task-small-state">No follow-up tasks created for this lead.</div> :
+              tasks.map((task) => (
+                <article className="lead-task-row" key={task.id}>
+                  <div className="lead-task-main">
+                    <strong>{task.title}</strong>
+                    {task.description && <p>{task.description}</p>}
+                    <small>{formatDateTime(task.due_at)}</small>
+                  </div>
+                  <div className="lead-task-actions">
+                    <TaskStatus status={task.status} overdue={taskIsOverdue(task)} />
+                    {task.status === 'pending' && (
+                      <button className="task-complete-button" type="button" disabled={updatingId === task.id} onClick={() => changeTaskStatus(task.id, 'completed')}>
+                        <Icon name="check" size={13} /> Complete
+                      </button>
+                    )}
+                  </div>
+                </article>
+              ))
+          }
+        </div>
+
+        <div className="lead-activity-list">
+          <div className="subsection-heading"><strong>Activity timeline</strong><span>{activities.length}</span></div>
+          {loading ? <div className="task-small-state">Loading activity…</div> :
+            activities.length === 0 ? <div className="task-small-state">No activity recorded yet.</div> :
+              <div className="activity-timeline">
+                {activities.map((activity) => (
+                  <div className="activity-item" key={activity.id}>
+                    <span className="activity-marker" />
+                    <div><strong>{activityLabel(activity.activity_type)}</strong><p>{activity.description}</p><small>{formatDateTime(activity.created_at)}</small></div>
+                  </div>
+                ))}
+              </div>
+          }
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SalesWorkspace({ onOpenLead }) {
+  const [summary, setSummary] = useState(null);
+  const [tasks, setTasks] = useState([]);
+  const [status, setStatus] = useState('pending');
+  const [due, setDue] = useState('');
+  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ page: 1, total: 0, totalPages: 0 });
+  const [loading, setLoading] = useState(true);
+  const [updatingId, setUpdatingId] = useState('');
+  const [error, setError] = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [taskResult, summaryResult] = await Promise.all([
+        fetchTasks({ status, due, search, page, limit: 20 }),
+        fetchTaskSummary()
+      ]);
+      setTasks(taskResult.tasks ?? []);
+      setPagination(taskResult.pagination);
+      setSummary(summaryResult);
+    } catch (loadError) {
+      setError(loadError.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [status, due, search, page]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  function applySearch(event) {
+    event.preventDefault();
+    setSearch(searchInput.trim());
+    setPage(1);
+  }
+
+  async function updateStatus(id, nextStatus) {
+    setUpdatingId(id);
+    setError('');
+    try {
+      await updateTask(id, { status: nextStatus });
+      await load();
+    } catch (updateError) {
+      setError(updateError.message);
+    } finally {
+      setUpdatingId('');
+    }
+  }
+
+  return (
+    <>
+      <section className="lead-page-header">
+        <div>
+          <div className="eyebrow">EXECUTION & FOLLOW-UP</div>
+          <h1>Sales Action Workspace</h1>
+          <p className="page-subtitle">Turn customer conversations into owned, trackable next steps.</p>
+        </div>
+      </section>
+
+      <section className="task-metric-grid">
+        <article className="task-metric-card"><span>OPEN TASKS</span><strong>{summary?.pending ?? '—'}</strong><small>Awaiting action</small></article>
+        <article className="task-metric-card overdue-metric"><span>OVERDUE</span><strong>{summary?.overdue ?? '—'}</strong><small>Past their due date</small></article>
+        <article className="task-metric-card"><span>COMPLETED</span><strong>{summary?.completed ?? '—'}</strong><small>Marked complete</small></article>
+        <article className="task-metric-card"><span>CANCELLED</span><strong>{summary?.cancelled ?? '—'}</strong><small>No longer required</small></article>
+      </section>
+
+      <section className="content-card sales-workspace-card">
+        <div className="lead-toolbar">
+          <form className="lead-search" onSubmit={applySearch}>
+            <Icon name="search" size={17} />
+            <input value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Search task or customer…" aria-label="Search tasks" />
+            <button type="submit">Search</button>
+          </form>
+          <div className="task-filters">
+            <label>Status
+              <select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}>
+                <option value="">All statuses</option>
+                <option value="pending">Pending</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </label>
+            <label>Due
+              <select value={due} onChange={(event) => { setDue(event.target.value); setPage(1); }}>
+                <option value="">Any due date</option>
+                <option value="overdue">Overdue</option>
+                <option value="today">Due today</option>
+                <option value="upcoming">Upcoming</option>
+                <option value="no_date">No due date</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        {error && <div className="error-banner" role="alert">{error}</div>}
+        {loading ? <div className="table-state"><span className="loader" /> Loading tasks…</div> :
+          tasks.length === 0 ? (
+            <div className="empty-state">
+              <span className="empty-icon"><Icon name="checklist" size={24} /></span>
+              <h2>No tasks match this view</h2>
+              <p>Create a follow-up from a lead record, then manage it here. Tasks remain linked to their customer.</p>
+            </div>
+          ) : (
+            <div className="workspace-task-list">
+              {tasks.map((task) => (
+                <article className="workspace-task-row" key={task.id}>
+                  <div className="workspace-task-date">
+                    <span>{task.due_at ? formatDate(task.due_at) : 'No date'}</span>
+                    <small>{task.due_at ? formatDateTime(task.due_at).split(', ').slice(-1)[0] : 'Unscheduled'}</small>
+                  </div>
+                  <div className="workspace-task-copy">
+                    <strong>{task.title}</strong>
+                    {task.description && <p>{task.description}</p>}
+                    <button type="button" className="task-lead-link" onClick={() => onOpenLead(task.lead_id)}>{task.lead_name} · {task.lead_location}</button>
+                  </div>
+                  <div className="workspace-task-right">
+                    <TaskStatus status={task.status} overdue={taskIsOverdue(task)} />
+                    {task.status === 'pending' && (
+                      <div className="task-row-buttons">
+                        <button className="task-complete-button" type="button" disabled={updatingId === task.id} onClick={() => updateStatus(task.id, 'completed')}><Icon name="check" size={13} /> Complete</button>
+                        <button className="task-cancel-button" type="button" disabled={updatingId === task.id} onClick={() => updateStatus(task.id, 'cancelled')}>Cancel</button>
+                      </div>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        <div className="table-footer">
+          <span>{pagination.total} tasks</span>
+          <div className="pagination-actions">
+            <button className="icon-button" type="button" disabled={pagination.page <= 1 || loading} onClick={() => setPage((value) => value - 1)} aria-label="Previous page"><Icon name="chevronLeft" size={16} /></button>
+            <span>Page {pagination.page || 1} of {Math.max(1, pagination.totalPages || 0)}</span>
+            <button className="icon-button" type="button" disabled={pagination.page >= pagination.totalPages || loading} onClick={() => setPage((value) => value + 1)} aria-label="Next page"><Icon name="chevronRight" size={16} /></button>
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}
+
 function LeadDetails({ lead, onClose, onStatusChange, updating }) {
   const [analyses, setAnalyses] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
@@ -503,6 +831,7 @@ function LeadDetails({ lead, onClose, onStatusChange, updating }) {
           <p className="analysis-disclaimer">AI output may be inaccurate. Verify property facts and review suggested responses before using them. The priority score is an internal sorting aid, not a probability of purchase.</p>
         </section>
 
+        <LeadTaskSection key={'tasks-' + lead.id} leadId={lead.id} />
         <LeadChat key={lead.id} leadId={lead.id} />
 
         <label className="detail-status-label">Update lead status
@@ -662,7 +991,7 @@ export default function App() {
           <button className={'nav-item ' + (page === 'leads' ? 'active' : '')} onClick={() => { setPage('leads'); setNotice(''); }} type="button">
             <Icon name="users" /> <span>Leads</span>
           </button>
-          <div className="nav-item disabled" title="Planned for the next milestone"><Icon name="checklist" /> <span>Sales workspace</span><small>SOON</small></div>
+          <button className={'nav-item ' + (page === 'sales' ? 'active' : '')} onClick={() => { setPage('sales'); setNotice(''); }} type="button"><Icon name="checklist" /> <span>Sales workspace</span></button>
           <div className="nav-item disabled" title="Planned for the next milestone"><Icon name="sparkles" /> <span>AI assistant</span><small>SOON</small></div>
         </nav>
 
@@ -681,7 +1010,7 @@ export default function App() {
 
       <main className="main-area">
         <header className="topbar">
-          <div className="breadcrumb"><span>Workspace</span><span className="breadcrumb-separator">/</span><strong>{page === 'overview' ? 'Overview' : 'Leads'}</strong></div>
+          <div className="breadcrumb"><span>Workspace</span><span className="breadcrumb-separator">/</span><strong>{page === 'overview' ? 'Overview' : page === 'leads' ? 'Leads' : 'Sales Action Workspace'}</strong></div>
           <div className="topbar-actions">
             <span className="demo-tag"><span /> DEMO WORKSPACE</span>
             <button className="theme-toggle" onClick={toggleTheme} type="button" aria-label={'Switch to ' + (theme === 'light' ? 'dark' : 'light') + ' mode'} title="Toggle theme"><Icon name={theme === 'light' ? 'moon' : 'sun'} size={17} /></button>
@@ -809,7 +1138,7 @@ export default function App() {
                   )}
               </section>
             </>
-          )}
+          ) : <SalesWorkspace onOpenLead={openLead} />}
 
           <footer className="page-footer"><span>PropIntel · AI-powered real-estate sales workspace</span><span>Fictional demo company · Synthetic data only</span></footer>
         </div>

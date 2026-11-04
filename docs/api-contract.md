@@ -1,109 +1,81 @@
 # API contract
 
-## Common conventions
+## Conventions
 
 - Base path: /api
 - Request and response bodies: JSON
 - Errors use an error object with a stable code and human-readable message.
-- API keys are never sent to the browser.
-
-## Health endpoints
-
-### GET /api/health
-
-Returns process-level API health.
-
-### GET /api/health/ready
-
-Checks whether the MySQL database is configured and reachable. Returns HTTP 503 when it is not ready.
+- IDs are positive integers.
+- Task due dates are accepted as ISO date-time strings and stored in MySQL DATETIME columns in UTC.
 
 ## Lead endpoints
 
-### POST /api/leads
+- GET /api/leads — list and filter leads
+- POST /api/leads — create a lead
+- GET /api/leads/:id — retrieve a lead
+- PATCH /api/leads/:id — update lead fields and status
+- GET /api/leads/summary — counts grouped by lead status
 
-Creates a lead and records a lead_created activity in the same database transaction.
+## AI endpoints
 
-Required fields: name, location, property_requirement, buying_timeline and customer_message.
+- POST /api/leads/:id/analyze — generate and save a structured lead analysis
+- GET /api/leads/:id/analyses — retrieve analysis history
+- POST /api/leads/:id/chat — send a lead-specific contextual assistant message
+- GET /api/leads/:id/conversations — retrieve the saved conversation
 
-Optional fields: budget_min, budget_max and status. Budgets are non-negative numeric amounts; status defaults to new.
+## Sales Action Workspace endpoints
 
-### GET /api/leads
+### POST /api/leads/:id/tasks
 
-Lists leads, newest first.
-
-Query parameters:
-- search: matches name, location or property requirement (maximum 80 characters)
-- status: new, contacted, qualified, site_visit, negotiation, won or lost
-- page: positive integer, default 1
-- limit: 1–50, default 10
-
-Response includes leads and pagination metadata.
-
-### GET /api/leads/summary
-
-Returns total leads and counts grouped by status.
-
-### GET /api/leads/:id
-
-Returns one lead or a 404 response.
-
-### PATCH /api/leads/:id
-
-Updates supplied lead fields. Status and text fields are validated. Budget range is checked against the current stored value inside a transaction. A lead_updated activity is recorded.
-
-## AI analysis endpoints
-
-### POST /api/leads/:id/analyze
-
-Generates a structured Gemini analysis and persists it as a new analysis version. The backend calculates the lead score independently and records an activity event.
-
-### GET /api/leads/:id/analyses
-
-Returns up to 20 saved analyses, newest version first.
-
-## Conversational assistant endpoints
-
-### POST /api/leads/:id/chat
+Creates a follow-up task for a lead and writes a follow_up_task_created activity in the same transaction.
 
 Request:
 
     {
-      "message": "Can we promise this customer a discount?"
+      "title": "Call customer to confirm site visit",
+      "description": "Ask for preferred weekday and time.",
+      "due_at": "2026-11-08T10:00:00.000Z"
     }
 
-The backend loads the selected lead, latest saved analysis, approved fictional company policies and up to 12 recent messages for that lead. It applies basic deterministic scope checks, sends the context to Gemini, validates the structured response and saves the user/assistant turn in a database transaction.
+description and due_at are optional. due_at may be null.
 
-Successful response:
+### GET /api/leads/:id/tasks
 
-    {
-      "data": {
-        "reply": {
-          "decision": "needs_policy_clarification",
-          "answer": "The demo policy requires authorized approval before a discount is promised.",
-          "supporting_policy_ids": ["sales_policies"],
-          "missing_information": ["Whether an authorized discount approval exists"],
-          "suggested_action": "Confirm approval with an authorized representative."
-        },
-        "messages": [
-          { "id": "11", "role": "user", "message": "Can we promise this customer a discount?" },
-          { "id": "12", "role": "assistant", "message": "The demo policy requires authorized approval before a discount is promised." }
-        ]
-      }
-    }
+Returns up to 50 tasks for one lead.
 
-Decisions:
-- allowed
-- out_of_scope
-- needs_policy_clarification
-- escalate
+### GET /api/tasks
 
-The endpoint accepts messages up to 2,000 characters and is limited to 12 requests per 15 minutes per client IP. Direct prompt-extraction attempts and clearly unrelated requests receive a deterministic refusal without a Gemini call.
+Lists tasks joined with their lead details. Query parameters:
 
-### GET /api/leads/:id/conversations
+- status: pending, completed or cancelled
+- due: overdue, today, upcoming or no_date
+- lead_id: filter to one lead
+- search: task title, description or customer name (maximum 80 characters)
+- page: positive integer, default 1
+- limit: 1–50, default 20
 
-Returns up to 100 saved messages for the requested lead, oldest first. The query is always filtered by that lead ID.
+Tasks are ordered with pending work first, then by due date.
 
-## Standard error response
+### GET /api/tasks/summary
+
+Returns counts for pending, overdue, completed and cancelled tasks.
+
+### PATCH /api/tasks/:id
+
+Updates supplied task fields. Supported fields:
+
+- title: non-empty, up to 180 characters
+- description: up to 2,000 characters or null
+- due_at: valid ISO date-time string or null
+- status: pending, completed or cancelled
+
+Task status updates and their associated activity timeline event are committed in the same transaction. Completing a task sets completed_at; moving it back to pending clears that value.
+
+### GET /api/leads/:id/activities
+
+Returns up to 50 activity entries for the lead, oldest first.
+
+## Error format
 
     {
       "error": {
@@ -111,15 +83,3 @@ Returns up to 100 saved messages for the requested lead, oldest first. The query
         "message": "A human-readable explanation."
       }
     }
-
-Relevant AI errors include AI_NOT_CONFIGURED, AI_RATE_LIMITED, AI_MODEL_ERROR, AI_PROVIDER_ERROR and INVALID_AI_RESPONSE.
-
-## Planned endpoints
-
-| Method | Endpoint | Purpose |
-|---|---|---|
-| POST | /api/leads/:id/tasks | Create a follow-up task |
-| GET | /api/tasks | List follow-up tasks |
-| PATCH | /api/tasks/:id | Update a task |
-| GET | /api/leads/:id/activities | Retrieve lead activity |
-| GET | /api/dashboard/stats | Retrieve persisted dashboard metrics |

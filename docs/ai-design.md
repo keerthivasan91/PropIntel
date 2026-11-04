@@ -104,3 +104,18 @@ Both chat and lead-analysis calls configure the JavaScript SDK's per-request HTT
 If a transient provider error remains after the retry attempts, the API returns HTTP 503 with `AI_TEMPORARILY_UNAVAILABLE`. If Gemini returns 429, the API returns `AI_RATE_LIMITED` and recommends checking the API project's usage/quota.
 
 A failed chat response is not written to the conversation table. The frontend keeps the unsent draft so the user can retry. A successful response persists the user and assistant messages in the same transaction.
+
+
+## Implemented: Sales Action Workspace
+
+The existing follow_up_tasks and lead_activities tables are used without adding another table.
+
+- A task belongs to one lead through lead_id.
+- Task creation writes both the task and a lead activity in one transaction.
+- Completion and cancellation update task status and write a corresponding activity in one transaction.
+- The workspace lists tasks with their lead name and location.
+- Filters include status and due-date states (overdue, today, upcoming and no due date).
+- Due dates are accepted as ISO date-time values and stored as UTC MySQL DATETIME values.
+- The lead detail view shows that lead's tasks and its activity timeline.
+
+The application does not automatically create tasks from model output. A salesperson reviews a recommendation and explicitly creates the task.

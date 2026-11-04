@@ -54,7 +54,8 @@ export const env = {
         waitForConnections: true,
         connectionLimit: parsedPoolLimit,
         queueLimit: 0,
-        enableKeepAlive: true
+        enableKeepAlive: true,
+        timezone: 'Z'
       }
     : null
 };
