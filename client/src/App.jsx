@@ -1077,7 +1077,7 @@ export default function App() {
                 )}
               </section>
             </>
-          ) : (
+          ) : page === 'leads' ? (
             <>
               <section className="lead-page-header">
                 <div><div className="eyebrow">CUSTOMER PIPELINE</div><h1>Leads</h1><p className="page-subtitle">Manage incoming customer enquiries and keep their status up to date.</p></div>
