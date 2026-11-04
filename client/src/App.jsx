@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
+  analyzeLead,
   createLead,
   fetchLead,
+  fetchLeadAnalyses,
   fetchLeadSummary,
   fetchLeads,
   updateLead
@@ -192,9 +194,54 @@ function LeadForm({ onClose, onSubmit, saving }) {
 }
 
 function LeadDetails({ lead, onClose, onStatusChange, updating }) {
+  const [analyses, setAnalyses] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysisError, setAnalysisError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    setHistoryLoading(true);
+    fetchLeadAnalyses(lead.id)
+      .then((result) => {
+        if (active) setAnalyses(result.analyses ?? []);
+      })
+      .catch((error) => {
+        if (active) setAnalysisError(error.message);
+      })
+      .finally(() => {
+        if (active) setHistoryLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [lead.id]);
+
+  async function runAnalysis() {
+    setAnalysisLoading(true);
+    setAnalysisError('');
+    try {
+      const result = await analyzeLead(lead.id);
+      setAnalyses((current) => [result.analysis, ...current]);
+    } catch (error) {
+      setAnalysisError(error.message);
+    } finally {
+      setAnalysisLoading(false);
+    }
+  }
+
+  const latest = analyses[0] ?? null;
+  const scoreRows = latest ? [
+    ['timeline', 'Buying timeline'],
+    ['budget', 'Budget clarity'],
+    ['requirement', 'Requirement clarity'],
+    ['engagement', 'Engagement signals']
+  ] : [];
+
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={(event) => {
-      if (event.target === event.currentTarget) onClose();
+      if (event.target === event.currentTarget && !analysisLoading) onClose();
     }}>
       <section className="modal-card detail-modal" role="dialog" aria-modal="true" aria-labelledby="lead-detail-title">
         <div className="modal-header">
@@ -203,18 +250,121 @@ function LeadDetails({ lead, onClose, onStatusChange, updating }) {
             <h2 id="lead-detail-title">{lead.name}</h2>
             <p>{lead.property_requirement} · {lead.location}</p>
           </div>
-          <button className="icon-button" type="button" onClick={onClose} aria-label="Close details"><Icon name="close" /></button>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="Close details" disabled={analysisLoading}><Icon name="close" /></button>
         </div>
+
         <div className="detail-grid">
           <div><small>Budget</small><strong>{formatBudget(lead.budget_min, lead.budget_max)}</strong></div>
           <div><small>Buying timeline</small><strong>{lead.buying_timeline}</strong></div>
           <div><small>Created</small><strong>{formatDate(lead.created_at)}</strong></div>
           <div><small>Current status</small><StatusBadge status={lead.status} /></div>
         </div>
+
         <div className="message-panel">
           <span className="eyebrow">CUSTOMER MESSAGE</span>
           <p>{lead.customer_message}</p>
         </div>
+
+        <section className="analysis-panel">
+          <div className="analysis-header">
+            <div>
+              <span className="eyebrow">GEMINI-POWERED · HUMAN REVIEW</span>
+              <h3>AI lead intelligence</h3>
+              <p>Analysis is grounded in the lead and the fictional Northstar Homes demo policies.</p>
+            </div>
+            <button className="button-primary" type="button" onClick={runAnalysis} disabled={analysisLoading || historyLoading}>
+              <Icon name="sparkles" size={15} />
+              {analysisLoading ? 'Analysing…' : latest ? 'Re-analyse' : 'Analyse lead'}
+            </button>
+          </div>
+
+          {analysisError && <div className="inline-error" role="alert">{analysisError}</div>}
+
+          {historyLoading ? (
+            <div className="analysis-empty"><span className="loader" /> Loading saved analysis…</div>
+          ) : latest ? (
+            <>
+              <div className="analysis-score-row">
+                <div className={'analysis-score score-' + latest.priority}>
+                  <strong>{latest.lead_score}</strong><small>/100</small>
+                  <span>Priority score</span>
+                </div>
+                <div className="analysis-priority-copy">
+                  <span className={'priority-label priority-' + latest.priority}>{latest.priority.toUpperCase()} PRIORITY</span>
+                  <strong>{latest.customer_intent}</strong>
+                  <small>Analysis v{latest.analysis_version} · {latest.model_name} · {formatDate(latest.created_at)}</small>
+                </div>
+              </div>
+
+              <div className="analysis-content-grid">
+                <article className="analysis-content-block">
+                  <h4>Lead summary</h4>
+                  <p>{latest.summary}</p>
+                </article>
+                <article className="analysis-content-block">
+                  <h4>Recommended next action</h4>
+                  <p>{latest.recommended_action}</p>
+                </article>
+              </div>
+
+              <div className="analysis-content-block analysis-list-block">
+                <h4>Key requirements</h4>
+                {latest.key_requirements.length ? (
+                  <ul>{latest.key_requirements.map((item, index) => <li key={index}>{item}</li>)}</ul>
+                ) : <p>No additional requirements were stated.</p>}
+              </div>
+
+              <div className="analysis-content-block analysis-list-block">
+                <h4>Objections and concerns</h4>
+                {latest.objections.length ? (
+                  <ul>{latest.objections.map((item, index) => <li key={index}>{item}</li>)}</ul>
+                ) : <p>No explicit objections were identified in the customer message.</p>}
+              </div>
+
+              <div className="suggested-response">
+                <div className="suggested-response-heading"><h4>Suggested customer response</h4><span>Draft for review</span></div>
+                <p>{latest.suggested_response}</p>
+              </div>
+
+              <details className="score-breakdown">
+                <summary>Why this lead received {latest.lead_score}/100</summary>
+                <div className="score-breakdown-list">
+                  {scoreRows.map(([key, label]) => {
+                    const item = latest.score_breakdown[key];
+                    return (
+                      <div className="score-breakdown-row" key={key}>
+                        <div><strong>{label}</strong><small>{item.reason}</small></div>
+                        <span>{item.score}/{item.maximum}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="score-disclaimer">{latest.score_breakdown.interpretation}</p>
+              </details>
+
+              {analyses.length > 1 && (
+                <details className="analysis-history">
+                  <summary>Previous analyses ({analyses.length - 1})</summary>
+                  {analyses.slice(1).map((item) => (
+                    <div className="analysis-history-row" key={item.id}>
+                      <div><strong>Version {item.analysis_version}</strong><small>{formatDate(item.created_at)} · {item.model_name}</small></div>
+                      <span className={'priority-label priority-' + item.priority}>{item.priority.toUpperCase()} · {item.lead_score}/100</span>
+                    </div>
+                  ))}
+                </details>
+              )}
+            </>
+          ) : (
+            <div className="analysis-empty">
+              <span className="empty-icon"><Icon name="sparkles" size={23} /></span>
+              <strong>No AI analysis yet</strong>
+              <p>Generate an analysis to extract the customer's intent, requirements, concerns and a recommended next action.</p>
+            </div>
+          )}
+
+          <p className="analysis-disclaimer">AI output may be inaccurate. Verify property facts and review suggested responses before using them. The priority score is an internal sorting aid, not a probability of purchase.</p>
+        </section>
+
         <label className="detail-status-label">Update lead status
           <select value={lead.status} disabled={updating} onChange={(event) => onStatusChange(lead.id, event.target.value)}>
             {statuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}

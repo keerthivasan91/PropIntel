@@ -52,3 +52,13 @@ export function updateLead(id, payload) {
     body: JSON.stringify(payload)
   });
 }
+
+export function analyzeLead(id) {
+  return request('/api/leads/' + encodeURIComponent(id) + '/analyze', {
+    method: 'POST'
+  });
+}
+
+export function fetchLeadAnalyses(id) {
+  return request('/api/leads/' + encodeURIComponent(id) + '/analyses');
+}

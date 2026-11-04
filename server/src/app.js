@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit';
 import { env } from './config/env.js';
 import healthRoutes from './routes/health.routes.js';
 import leadRoutes from './routes/lead.routes.js';
+import analysisRoutes from './routes/analysis.routes.js';
 import { notFoundHandler } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
@@ -42,5 +43,6 @@ app.get('/', (_req, res) => {
 app.use('/api', apiLimiter);
 app.use('/api', healthRoutes);
 app.use('/api/leads', leadRoutes);
+app.use('/api/leads', analysisRoutes);
 app.use(notFoundHandler);
 app.use(errorHandler);

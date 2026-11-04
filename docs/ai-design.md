@@ -1,41 +1,59 @@
 # PropIntel AI design
 
-> This document describes the approved design. Gemini integration is planned for a later milestone and is not yet implemented.
+## Implemented: lead analysis
 
-## Context sources
+The backend uses the official Google Gen AI JavaScript SDK (@google/genai) to call Gemini from the server. The configured model is controlled by GEMINI_MODEL; the initial default is gemini-3.8-flash.
 
-Each assistant request will be assembled by the backend from three isolated sources:
+### Lead-analysis pipeline
 
-1. **Company context:** Version-controlled fictional Northstar Homes profile, sales policies, communication guidance and escalation rules.
-2. **Lead context:** The selected lead's current database fields and latest saved analysis.
-3. **Conversation context:** A bounded recent message history loaded from MySQL for that lead.
+1. Validate and retrieve the selected lead from MySQL.
+2. Load the fictional Northstar Homes profile, sales policies, communication guidance and escalation rules.
+3. Send those approved documents and the selected lead's fields to Gemini.
+4. Request JSON matching the analysis response schema.
+5. Parse and semantically validate every required field and array item in the backend.
+6. Calculate the lead score independently using deterministic backend rules.
+7. Save a new analysis version and its score breakdown to lead_analyses.
+8. Record an ai_analysis event in lead_activities.
+9. Return the analysis to the salesperson for review.
 
-## Request pipeline
+The model does not receive authority to set a score, update lead status, create tasks or send customer messages.
 
-1. Validate the selected lead and request.
-2. Retrieve the approved company documents.
-3. Retrieve the selected lead and its latest analysis.
-4. Retrieve recent messages for that same lead.
-5. Apply domain/scope checks and build the model request.
-6. Call Gemini from the backend only.
-7. Parse and validate the structured model response.
-8. Persist the user message and accepted assistant response.
-9. Return a normalized response to the client.
+## Structured response fields
 
-## Scope and safety
+- summary
+- customer_intent
+- key_requirements
+- objections
+- recommended_action
+- suggested_response
 
-- The assistant is limited to real-estate lead analysis and sales-support workflows.
-- Customer messages and conversation history are untrusted content, not instructions that can override system or company policy.
-- Missing company or property facts must remain unknown; the model must not invent them.
-- Legal, financial, contractual, pricing and availability questions requiring verification should be escalated.
-- AI-generated recommendations require salesperson review.
-- The backend must validate response structure and supported context references.
-- Prompt instructions and model checks reduce risk but cannot guarantee that an LLM will never produce an incorrect answer.
+JSON-schema output improves response structure, but syntactically valid JSON is not proof that the contents are true. Backend semantic validation and human review remain necessary.
 
-## Memory
+## Context and restrictions
 
-MySQL is the source of truth for application chat history. Each request retrieves a limited recent history window for the selected lead. The complete history remains stored in the database. No cross-lead context should be included.
+- Company context is loaded from version-controlled fictional Northstar Homes documents.
+- Customer fields are passed as data and must not be followed as instructions.
+- Missing property or company facts must remain unknown.
+- The model must not invent availability, prices, amenities, approvals, dates or commercial terms.
+- Legal, tax, loan and personalized investment matters require human escalation.
+- Suggested responses are drafts; the system does not send them automatically.
 
-## Lead score
+## API endpoints
 
-The backend will calculate the 100-point prioritization score from deterministic business rules. It is not a purchase probability and must not be accepted from model output.
+- POST /api/leads/:id/analyze — generate and persist a new analysis; limited to 8 requests per 15 minutes per client IP.
+- GET /api/leads/:id/analyses — retrieve up to 20 saved analyses, newest version first.
+
+## Secrets and operation
+
+- GEMINI_API_KEY is read only by the backend.
+- GEMINI_MODEL can be changed through the backend environment.
+- Gemini errors are logged server-side and returned as safe application errors.
+- If the key is absent, the API responds with AI_NOT_CONFIGURED.
+
+## Planned: conversational memory
+
+The contextual assistant remains a later milestone. Its planned memory design uses the selected lead, approved company context and bounded recent conversation history retrieved from MySQL. This analysis endpoint does not claim to implement chat memory.
+
+## Limitations
+
+The initial scoring rules are a product heuristic rather than a trained conversion model. AI output can be inaccurate despite schema and semantic validation. The salesperson remains responsible for verifying facts and deciding what action to take.
