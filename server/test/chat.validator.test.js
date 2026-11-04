@@ -79,7 +79,7 @@ test('blocks unrelated programming requests', () => {
 test('handles greetings without a model request', () => {
   const result = getDeterministicChatGuard('Hello!');
   assert.equal(result.decision, 'allowed');
-  assert.match(result.answer, /selected lead/i);
+  assert.match(result.answer, /this lead/i);
 });
 
 test('allows relevant sales questions to reach contextual AI', () => {
