@@ -2,116 +2,144 @@
 
 AI-powered real-estate lead intelligence and sales workflow workspace.
 
-> **Assignment project:** Masal AI – AI FDE Intern (Round 2)  
-> **Status:** Initial foundation. Features are being implemented incrementally.
+> **Assignment:** Masal AI – AI FDE Intern (Round 2)  
+> **Current milestone:** Project foundation (Milestone 1). Lead management, AI workflows and sales actions are planned next.
 
-## Product scope
+## Product goal
 
 PropIntel helps a real-estate sales team understand inbound leads, prioritize follow-ups and manage next actions.
 
 Planned capabilities:
 
-- Lead intake and management
-- Gemini-powered lead analysis with structured output
+- Structured lead intake and lead management
+- Gemini-powered lead analysis with validated structured output
 - Explainable deterministic lead prioritization
-- Lead-specific AI conversations with persistent history
+- Lead-specific AI conversations with persistent MySQL history
 - Company-policy-aware, domain-restricted assistant
-- Sales Action Workspace for tasks and activity history
+- Sales Action Workspace for follow-up tasks and activity history
 - Light and dark themes
 
-## Architecture
+## Technology
 
-- **Frontend:** React + Vite
+- **Frontend:** React 19 + Vite
 - **Backend:** Node.js + Express
-- **Database:** MySQL
-- **AI:** Google Gemini API (server-side only)
+- **Database:** MySQL 8+
+- **AI:** Google Gemini API (server-side integration planned)
 
 The backend owns business rules, lead scoring, context assembly, policy checks and database access. The browser must never receive the Gemini API key.
 
 ## Repository layout
 
-```text
-propintel/
-├── client/              # React application
-├── server/              # Express API
-│   └── src/
-│       └── knowledge/   # Fictional demo company policies
-├── database/            # SQL schema and demo seed
-├── docs/                # Architecture and API notes
-├── .gitignore
-└── README.md
-```
+    propintel/
+    ├── client/                 # React application
+    ├── server/                 # Express API
+    │   ├── src/
+    │   │   ├── config/
+    │   │   ├── middleware/
+    │   │   ├── routes/
+    │   │   └── knowledge/
+    │   │       └── company/    # Fictional demo company policies
+    │   └── test/
+    ├── database/               # MySQL schema and demo seed
+    ├── docs/                   # Architecture and AI design notes
+    ├── package.json            # npm workspaces and root scripts
+    └── README.md
 
 ## Prerequisites
 
-- Node.js 20 or later
+- Node.js 20.19+ (or a current supported Node.js release)
 - npm
-- MySQL 8 or compatible MySQL server
-- A Gemini API key for AI features
+- MySQL 8+ for database-backed milestones
 
-## Local setup
+Check your versions:
+
+    node --version
+    npm --version
+    mysql --version
+
+## Run locally
 
 ### 1. Clone the repository
 
-```bash
-git clone https://github.com/keerthivasan91/PropIntel.git
-cd PropIntel
-```
+    git clone https://github.com/keerthivasan91/PropIntel.git
+    cd PropIntel
 
-### 2. Configure MySQL
+### 2. Install dependencies
 
-Create a database and run:
+Run this once from the repository root:
 
-```bash
-mysql -u root -p < database/schema.sql
-```
-
-Optional demo data:
-
-```bash
-mysql -u root -p propintel < database/seed.sql
-```
+    npm install
 
 ### 3. Configure the backend
 
-```bash
-cd server
-cp .env.example .env
-npm install
-npm run dev
-```
+    cd server
+    cp .env.example .env
 
-Fill in the MySQL connection settings and Gemini API key in `server/.env`. Never commit this file.
+Edit server/.env and set your local MySQL connection values. MYSQL_PASSWORD may be left empty if your local MySQL user has no password. The Gemini key can be added when AI integration is implemented. Never commit .env.
 
-### 4. Configure the frontend
+Return to the repository root:
 
-In another terminal:
+    cd ..
 
-```bash
-cd client
-cp .env.example .env
-npm install
-npm run dev
-```
+### 4. Create the database
 
-Open the Vite URL printed in the terminal.
+    mysql -u root -p < database/schema.sql
+
+Optional synthetic demo data (run once):
+
+    mysql -u root -p propintel < database/seed.sql
+
+### 5. Start frontend and backend
+
+From the repository root:
+
+    npm run dev
+
+- Frontend: http://localhost:5173
+- Backend health: http://localhost:5000/api/health
+- Backend readiness (includes MySQL check): http://localhost:5000/api/health/ready
+
+The frontend development server proxies /api requests to the Express server.
+
+### Other commands
+
+    npm run build
+    npm test
+    npm run dev:server
+    npm run dev:client
 
 ## Environment variables
 
-See `server/.env.example` and `client/.env.example`. The Gemini key belongs only in the server environment.
+See server/.env.example. The Gemini API key belongs only in the backend environment.
 
 ## AI and data-handling design
 
-- Conversation history is persisted by the application in MySQL; it is not assumed that separate Gemini API calls share memory automatically.
-- Each assistant request is assembled with the selected lead, bounded recent chat history and the fictional demo company's approved policy documents.
-- AI output is treated as untrusted input and validated by the backend.
-- Lead priority is calculated by backend business rules, not accepted as an LLM-generated probability.
-- The demo policy pack is fictional and is not a statement of Masal AI policy.
-- Do not enter real customer or other sensitive personal information into this public demo.
+- Conversation history will be persisted by the application in MySQL; the application will not assume separate Gemini requests automatically share memory.
+- Each assistant request will be assembled with the selected lead, bounded recent chat history and the fictional demo company's approved policy documents.
+- AI output will be treated as untrusted input and validated by the backend.
+- Lead priority will be calculated by backend business rules, not accepted as an LLM-generated conversion probability.
+- The included policy pack is fictional and is not a statement of Masal AI policy.
+- Use synthetic data only. Do not enter real customer or sensitive personal information into a public demo.
 
-## Limitations
+## Current implementation status
 
-This repository is being implemented in milestones. Consult the code and the project status before assuming a planned capability is already available. AI output can be wrong; policy instructions and output validation reduce risk but do not guarantee perfect model behaviour.
+**Available in this initial commit**
+- React/Vite application shell
+- Persistent light/dark theme preference
+- Express API health endpoint
+- MySQL connection configuration and readiness check
+- Initial five-table MySQL schema
+- Fictional demo company policy documents
+- Setup documentation and a backend health test
+
+**Planned next**
+- Lead CRUD APIs and UI
+- Gemini lead analysis and deterministic scoring
+- Persistent, policy-aware contextual chat
+- Follow-up tasks and activity timeline
+- Dashboard metrics backed by real data
+
+Planned features are not represented as implemented until their workflows are connected and tested.
 
 ## AI usage disclosure
 
