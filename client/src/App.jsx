@@ -364,13 +364,14 @@ function TaskStatus({ status, overdue = false }) {
   return <span className={'task-status task-' + (overdue ? 'overdue' : status)}>{label}</span>;
 }
 
-function LeadTaskSection({ leadId }) {
+function LeadTaskSection({ leadId, recommendedAction = '' }) {
   const [tasks, setTasks] = useState([]);
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [updatingId, setUpdatingId] = useState('');
   const [showComposer, setShowComposer] = useState(false);
+  const [usingRecommendation, setUsingRecommendation] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [dueAt, setDueAt] = useState('');
@@ -412,6 +413,7 @@ function LeadTaskSection({ leadId }) {
       setDescription('');
       setDueAt('');
       setShowComposer(false);
+      setUsingRecommendation(false);
       await refresh();
     } catch (saveError) {
       setError(saveError.message);
@@ -443,13 +445,51 @@ function LeadTaskSection({ leadId }) {
           <h3>Follow-ups & activity</h3>
           <p>Tasks are saved against this lead and appear in the sales workspace.</p>
         </div>
-        <button className="button-primary" type="button" onClick={() => setShowComposer((value) => !value)}>
-          <Icon name="plus" size={15} /> {showComposer ? 'Close' : 'Add task'}
-        </button>
+        <div className="lead-task-heading-actions">
+          {recommendedAction.trim() && (
+            <button
+              className="button-secondary"
+              type="button"
+              disabled={saving}
+              onClick={() => {
+                setTitle('Follow up on AI recommendation');
+                setDescription(recommendedAction);
+                setDueAt('');
+                setUsingRecommendation(true);
+                setShowComposer(true);
+              }}
+            >
+              Use AI recommendation
+            </button>
+          )}
+          <button
+            className="button-primary"
+            type="button"
+            onClick={() => {
+              if (showComposer) {
+                setShowComposer(false);
+                setUsingRecommendation(false);
+              } else {
+                setTitle('');
+                setDescription('');
+                setDueAt('');
+                setUsingRecommendation(false);
+                setShowComposer(true);
+              }
+            }}
+          >
+            <Icon name="plus" size={15} /> {showComposer ? 'Close' : 'Add task'}
+          </button>
+        </div>
       </div>
 
       {showComposer && (
         <form className="task-composer" onSubmit={submitTask}>
+          {usingRecommendation && (
+            <p className="task-recommendation-note">
+              AI recommendation copied into this draft. Review or edit the details before creating the task.
+            </p>
+          )}
           <label>Task title
             <input value={title} onChange={(event) => setTitle(event.target.value)} maxLength="180" required placeholder="e.g. Call customer to confirm site visit" />
           </label>
@@ -460,7 +500,7 @@ function LeadTaskSection({ leadId }) {
             <input type="datetime-local" value={dueAt} onChange={(event) => setDueAt(event.target.value)} />
           </label>
           <div className="task-composer-actions">
-            <button className="button-secondary" type="button" onClick={() => setShowComposer(false)} disabled={saving}>Cancel</button>
+            <button className="button-secondary" type="button" onClick={() => { setShowComposer(false); setUsingRecommendation(false); }} disabled={saving}>Cancel</button>
             <button className="button-primary" type="submit" disabled={saving || !title.trim()}>{saving ? 'Saving…' : 'Create task'}</button>
           </div>
         </form>
@@ -831,7 +871,7 @@ function LeadDetails({ lead, onClose, onStatusChange, updating }) {
           <p className="analysis-disclaimer">AI output may be inaccurate. Verify property facts and review suggested responses before using them. The priority score is an internal sorting aid, not a probability of purchase.</p>
         </section>
 
-        <LeadTaskSection key={'tasks-' + lead.id} leadId={lead.id} />
+        <LeadTaskSection key={'tasks-' + lead.id} leadId={lead.id} recommendedAction={latest?.recommended_action ?? ''} />
         <LeadChat key={lead.id} leadId={lead.id} />
 
         <label className="detail-status-label">Update lead status
