@@ -27,6 +27,7 @@ The backend owns validation, lead scoring, context assembly, policy checks and d
 - Lead-scoped conversational assistant with company policy, lead and latest-analysis context
 - Persistent conversation history per lead
 - Sales Action Workspace with task creation, due dates, completion and cancellation
+- AI recommended next action can prefill a task draft for salesperson review and confirmation
 - Task search, status filters, overdue/today/upcoming filters and summary metrics
 - Lead activity timeline with task creation/completion and existing lead/AI events
 - Server-side Gemini API key handling and request rate limits
@@ -107,6 +108,15 @@ The 100-point score is calculated deterministically by the backend: buying timel
 The assistant assembles the selected lead, latest analysis, approved demo policy documents and the most recent 12 saved messages for that lead. Full conversation history remains in MySQL. The included Northstar Homes policies are fictional demo content, not Masal AI policies.
 
 Customer and conversation content are untrusted reference data, not instructions. AI output can be inaccurate. Verify property facts and review suggestions. Use synthetic data only; do not enter real customer or sensitive personal information into this public demo.
+
+## AI recommendation to task
+
+1. Gemini returns a recommended next action as part of the saved lead analysis.
+2. The salesperson selects **Use AI recommendation** to copy that text into the existing task form.
+3. The salesperson reviews or edits the task title and description and chooses a due date.
+4. The task is created only after the salesperson selects **Create task**. The existing task API saves it and the activity timeline records the task event.
+
+This is a human-reviewed handoff, not an autonomous agent. It reuses the existing task API and database tables; no additional schema or automatic customer communication is involved.
 
 ## Task dates
 
