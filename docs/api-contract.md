@@ -2,16 +2,51 @@
 
 ## Conventions
 
-- Base path: /api
+- Base path: `/api`
 - Request and response bodies: JSON
 - Errors use an error object with a stable code and human-readable message.
 - IDs are positive integers.
 - Task due dates are accepted as ISO date-time strings and stored in MySQL DATETIME columns in UTC.
 
+## Public customer intake
+
+### POST /api/public/enquiries
+
+Public endpoint for the Northstar Homes property enquiry form. It accepts only these customer fields:
+
+- `name`: required, up to 120 characters
+- `location`: required, up to 160 characters
+- `property_requirement`: required, up to 160 characters
+- `budget_min` and `budget_max`: optional non-negative numbers
+- `buying_timeline`: required
+- `customer_message`: required, up to 5,000 characters
+
+Any caller-supplied lead status or administrative fields are ignored. The server always creates the lead with status `new`. The endpoint is rate-limited separately from admin APIs.
+
+Success response (201):
+
+    {
+      "data": {
+        "reference": 123
+      }
+    }
+
+The public API does not expose list, read, search or update endpoints for customer records.
+
+## Admin authentication
+
+- `GET /api/auth/me` — returns whether the browser has an authenticated admin session, the username when authenticated, and whether admin credentials are configured.
+- `POST /api/auth/login` — accepts `username` and `password`; returns a signed eight-hour HttpOnly, SameSite=Strict cookie on success. Login attempts are rate-limited.
+- `POST /api/auth/logout` — clears the admin cookie.
+
+The account is configured with `ADMIN_USERNAME`, `ADMIN_PASSWORD` (at least 12 characters) and `SESSION_SECRET` (at least 32 characters) in the backend environment. Never commit real values. A missing or placeholder configuration fails closed.
+
+All lead, analysis, conversation and task endpoints below require the admin session. Requests without a valid session receive `401 ADMIN_AUTH_REQUIRED`; an unconfigured admin account receives `503 ADMIN_AUTH_NOT_CONFIGURED`.
+
 ## Lead endpoints
 
 - GET /api/leads — list and filter leads. Each lead includes `lead_score` and `priority` from its latest saved analysis; both are null before the first analysis. Results are ordered by score descending, with unanalysed leads last, then newest lead first as a tie-breaker.
-- POST /api/leads — create a lead
+- POST /api/leads — create a lead from the admin workspace
 - GET /api/leads/:id — retrieve a lead
 - PATCH /api/leads/:id — update lead fields and status
 - GET /api/leads/summary — counts grouped by lead status
@@ -27,7 +62,7 @@
 
 ### POST /api/leads/:id/tasks
 
-Creates a follow-up task for a lead and writes a follow_up_task_created activity in the same transaction.
+Creates a follow-up task for a lead and writes a follow-up activity in the same transaction.
 
 Request:
 
@@ -37,7 +72,7 @@ Request:
       "due_at": "2026-11-08T10:00:00.000Z"
     }
 
-description and due_at are optional. due_at may be null.
+Description and due_at are optional. due_at may be null.
 
 ### GET /api/leads/:id/tasks
 
