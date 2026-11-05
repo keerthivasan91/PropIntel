@@ -16,6 +16,10 @@ import { errorHandler } from './middleware/errorHandler.js';
 
 export const app = express();
 
+// Trust only the local Nginx reverse proxy. This lets rate limiters use the
+// original client IP without trusting arbitrary forwarded headers from the internet.
+app.set('trust proxy', 'loopback');
+
 app.disable('x-powered-by');
 app.use(helmet());
 app.use(cors({
