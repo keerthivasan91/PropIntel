@@ -107,8 +107,19 @@ Open `server/.env` and set the values for your local environment:
 | `MYSQL_CONNECTION_LIMIT` | MySQL connection-pool size |
 | `GEMINI_API_KEY` | Gemini API key; backend only |
 | `GEMINI_MODEL` | Gemini model ID; default `gemini-3.5-flash-lite` |
+| `ADMIN_USERNAME` | Single admin username; default `admin` |
+| `ADMIN_PASSWORD` | Single admin password; use a unique value with at least 12 characters |
+| `SESSION_SECRET` | Random HMAC signing secret with at least 32 characters; do not reuse a public placeholder |
 
 The checked-in example uses `gemini-3.5-flash-lite`, which was tested during development. Use a model enabled for the API key you configure.
+
+Set the single administrator credentials in `server/.env`. Generate a unique session secret in PowerShell, for example:
+
+```powershell
+-join ((1..48) | ForEach-Object { '{0:x}' -f (Get-Random -Maximum 16) })
+```
+
+Use the output as `SESSION_SECRET`, set a unique `ADMIN_PASSWORD` (12+ characters), and do not commit the real `server/.env` file. The sample placeholder values are intentionally rejected by the API.
 
 ### 3. Create the database
 
@@ -132,7 +143,8 @@ The schema creates the five tables listed above. No additional migration is requ
 npm run dev
 ```
 
-- Frontend: http://localhost:5173
+- Customer property enquiry page: http://localhost:5173/
+- Admin sign-in and sales workspace: http://localhost:5173/admin
 - API health: http://localhost:5000/api/health
 - Database readiness: http://localhost:5000/api/health/ready
 
@@ -170,7 +182,17 @@ The existing task endpoint saves the confirmed task and records an activity even
 
 ## API overview
 
-### Leads
+### Public intake
+
+- `POST /api/public/enquiries` – accept a public property enquiry; the server sets its status to New and returns a reference number
+
+### Authentication
+
+- `GET /api/auth/me` – check whether the browser has a valid admin session
+- `POST /api/auth/login` – sign in using the configured single administrator credentials
+- `POST /api/auth/logout` – clear the admin session cookie
+
+### Leads (admin session required)
 
 - `GET /api/leads` – list, search and filter leads; returns latest AI priority and score, sorted by priority
 - `POST /api/leads` – create a lead
@@ -208,17 +230,22 @@ See [docs/api-contract.md](docs/api-contract.md) for request fields, filters and
 
 ## Security and demo data
 
+- The public `/` page accepts property enquiries only. It cannot read, search or retrieve customer records.
+- The admin workspace at `/admin` uses one configured administrator account. Set `ADMIN_USERNAME`, `ADMIN_PASSWORD` and `SESSION_SECRET` in `server/.env`; placeholder credentials are rejected.
+- Internal lead, AI, chat and task endpoints require a valid signed, HttpOnly, SameSite=Strict admin cookie. The session expires after eight hours, and login attempts are rate-limited.
+- The public enquiry endpoint has a separate rate limit and only accepts customer enquiry fields. The server always creates it with status `new`.
 - Use synthetic data only. Do not enter actual customer details, personal information or confidential business information.
 - Northstar Homes and its company policies are fictional demo content. They are not Masal AI policies.
-- Keep `server/.env` private and never commit API keys or database credentials.
-- The browser does not receive the Gemini API key.
+- Keep `server/.env` private and never commit API keys, admin passwords, session secrets or database credentials.
+- The browser does not receive the Gemini API key or administrator password.
 - AI responses can be inaccurate. Verify property facts, prices, availability and all customer-facing text before use.
 
 ## Known limitations
 
 - The demo does not connect to a live property inventory, CRM, calendar, WhatsApp or calling system. It cannot confirm actual property availability or book site visits.
 - It is a text-based sales workflow; speech-to-text, text-to-speech and voice calling are outside this assignment's scope.
-- There is no user authentication or multi-tenant access control. Use synthetic data only and do not treat the public demo as a production CRM.
+- Authentication is intentionally limited to one administrator; there are no staff accounts, roles, password-reset flow or multi-tenant permissions. The public page does not provide customer login or enquiry-status tracking.
+- This is an assignment demo rather than a production CRM. Before real customer use, add account recovery, operational monitoring, data-retention controls, privacy/legal review and appropriate deployment hardening.
 - Lead scoring is a transparent heuristic, not a trained conversion model. Keyword signals can miss context or negation.
 - Gemini may return inaccurate content even when its response matches the required JSON schema.
 - Chat uses a bounded 12-message context window; full history is stored, but older turns are not included in each model request.
