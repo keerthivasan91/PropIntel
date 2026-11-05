@@ -1033,7 +1033,6 @@ export default function App() {
             <Icon name="users" /> <span>Leads</span>
           </button>
           <button className={'nav-item ' + (page === 'sales' ? 'active' : '')} onClick={() => { setPage('sales'); setNotice(''); }} type="button"><Icon name="checklist" /> <span>Sales workspace</span></button>
-          <div className="nav-item disabled" title="Planned for the next milestone"><Icon name="sparkles" /> <span>AI assistant</span><small>SOON</small></div>
         </nav>
 
         <div className="sidebar-bottom">
@@ -1078,7 +1077,7 @@ export default function App() {
                 <div className="intro-copy">
                   <div className="intro-kicker"><Icon name="sparkles" size={15} /> BUILT FOR REAL ESTATE SALES TEAMS</div>
                   <h2>Turn customer enquiries into meaningful next steps.</h2>
-                  <p>Capture the customer's requirements, keep lead information organized and prepare for AI-assisted sales decisions in the next milestone.</p>
+                  <p>Capture customer requirements, review Gemini-powered lead analysis and use the lead-specific assistant to prepare the next sales action.</p>
                   <div className="intro-note"><span className="note-check"><Icon name="check" size={13} /></span> Human decisions stay in control. AI recommendations are suggestions, not commitments.</div>
                 </div>
                 <div className="intro-illustration" aria-hidden="true">
@@ -1121,7 +1120,7 @@ export default function App() {
           ) : page === 'leads' ? (
             <>
               <section className="lead-page-header">
-                <div><div className="eyebrow">CUSTOMER PIPELINE</div><h1>Leads</h1><p className="page-subtitle">Manage incoming customer enquiries and keep their status up to date.</p></div>
+                <div><div className="eyebrow">CUSTOMER PIPELINE</div><h1>Leads</h1><p className="page-subtitle">Manage enquiries, review AI priority and open any lead for its analysis and contextual assistant.</p></div>
                 <button className="button-primary" onClick={() => setFormOpen(true)} type="button"><Icon name="plus" size={16} /> Add lead</button>
               </section>
 
