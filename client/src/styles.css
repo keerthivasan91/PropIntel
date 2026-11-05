@@ -654,7 +654,7 @@ button.nav-item.active { background: var(--accent-soft); }
   .app-shell .sidebar { width: 252px !important; padding: 22px 17px 16px !important; align-items: stretch !important; z-index: 30; }
   .app-shell .main-area { margin-left: 0 !important; }
   .app-shell .sidebar .brand-copy,
-  .app-shell .sidebar .workspace-copy,
+  .app-shell .sidebar .workspace-copy { display: flex !important; }
   .app-shell .sidebar .workspace-chevron,
   .app-shell .sidebar .workspace-switcher,
   .app-shell .sidebar .nav-label,
