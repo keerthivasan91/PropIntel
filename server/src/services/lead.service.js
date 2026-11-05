@@ -22,7 +22,9 @@ function toLead(row) {
   return {
     ...row,
     budget_min: row.budget_min === null ? null : Number(row.budget_min),
-    budget_max: row.budget_max === null ? null : Number(row.budget_max)
+    budget_max: row.budget_max === null ? null : Number(row.budget_max),
+    lead_score: row.lead_score == null ? null : Number(row.lead_score),
+    priority: row.priority ?? null
   };
 }
 
