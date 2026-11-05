@@ -9,12 +9,30 @@ process.env.SESSION_SECRET = 'propintel-ci-session-secret-0123456789012345678901
 
 const { app } = await import('../src/app.js');
 
-test('admin APIs reject requests without an administrator session', async () => {
-  const paths = ['/api/leads', '/api/leads/summary', '/api/tasks', '/api/tasks/summary'];
+test('all lead, AI, conversation and task APIs reject requests without an administrator session', async () => {
+  const requests = [
+    ['get', '/api/leads'],
+    ['post', '/api/leads'],
+    ['get', '/api/leads/summary'],
+    ['get', '/api/leads/1'],
+    ['patch', '/api/leads/1'],
+    ['post', '/api/leads/1/analyze'],
+    ['get', '/api/leads/1/analyses'],
+    ['post', '/api/leads/1/chat'],
+    ['get', '/api/leads/1/conversations'],
+    ['get', '/api/leads/1/tasks'],
+    ['post', '/api/leads/1/tasks'],
+    ['get', '/api/leads/1/activities'],
+    ['get', '/api/tasks'],
+    ['get', '/api/tasks/summary'],
+    ['patch', '/api/tasks/1']
+  ];
 
-  for (const path of paths) {
-    const response = await request(app).get(path);
-    assert.equal(response.status, 401, path + ' should require admin authentication');
+  for (const [method, path] of requests) {
+    let pending = request(app)[method](path);
+    if (method === 'post' || method === 'patch') pending = pending.send({});
+    const response = await pending;
+    assert.equal(response.status, 401, method.toUpperCase() + ' ' + path + ' should require admin authentication');
     assert.equal(response.body.error.code, 'ADMIN_AUTH_REQUIRED');
   }
 });
