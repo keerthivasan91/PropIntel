@@ -14,7 +14,9 @@ export function isAdminAuthConfigured() {
   return Boolean(
     env.adminUsername &&
     env.adminPassword.length >= 12 &&
-    env.sessionSecret.length >= 32
+    env.adminPassword !== 'replace_with_a_strong_unique_password' &&
+    env.sessionSecret.length >= 32 &&
+    env.sessionSecret !== 'replace_with_at_least_32_random_characters'
   );
 }
 
