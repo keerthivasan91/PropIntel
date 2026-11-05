@@ -3,8 +3,9 @@ import { env } from './config/env.js';
 import { databasePool } from './config/database.js';
 
 // Keep the API private to the VPS. Nginx is the only public entry point.
-const server = app.listen(env.port, '127.0.0.1', () => {
-  console.log('PropIntel API listening on http://127.0.0.1:' + env.port);
+const host = process.env.HOST ?? '127.0.0.1';
+const server = app.listen(env.port, host, () => {
+  console.log('PropIntel API listening on http://' + host + ':' + env.port);
 });
 
 async function shutdown(signal) {
