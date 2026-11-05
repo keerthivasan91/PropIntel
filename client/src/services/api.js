@@ -5,6 +5,7 @@ async function request(path, options = {}) {
   try {
     response = await fetch(API_BASE_URL + path, {
       ...options,
+      credentials: 'include',
       headers: {
         ...(options.body ? { 'Content-Type': 'application/json' } : {}),
         ...options.headers
@@ -19,6 +20,28 @@ async function request(path, options = {}) {
     throw new Error(body?.error?.message ?? 'The request could not be completed.');
   }
   return body.data;
+}
+
+export function checkAdminSession() {
+  return request('/api/auth/me');
+}
+
+export function loginAdmin(credentials) {
+  return request('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(credentials)
+  });
+}
+
+export function logoutAdmin() {
+  return request('/api/auth/logout', { method: 'POST' });
+}
+
+export function submitPublicEnquiry(payload) {
+  return request('/api/public/enquiries', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
 }
 
 export function fetchLeadSummary() {
