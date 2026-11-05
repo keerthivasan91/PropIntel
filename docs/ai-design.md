@@ -2,7 +2,7 @@
 
 ## Implemented: lead analysis
 
-The backend uses the official Google Gen AI JavaScript SDK (@google/genai) to call Gemini from the server. The configured model is controlled by GEMINI_MODEL; the initial default is gemini-3.8-flash.
+The backend uses the official Google Gen AI JavaScript SDK (@google/genai) to call Gemini from the server. The configured model is controlled by GEMINI_MODEL; the initial default is gemini-3.5-flash-lite.
 
 ### Lead-analysis pipeline
 
@@ -74,7 +74,7 @@ These are layered controls, not a guarantee that an LLM can never make an error.
 
 ## Structured response and model configuration
 
-Gemini uses JSON-schema output through the official SDK, then the backend validates the response again. JSON structure does not prove factual accuracy. GEMINI_MODEL is configurable; the default is gemini-3.8-flash.
+Gemini uses JSON-schema output through the official SDK, then the backend validates the response again. JSON structure does not prove factual accuracy. GEMINI_MODEL is configurable; the default is gemini-3.5-flash-lite.
 
 ## Secrets and operation
 
