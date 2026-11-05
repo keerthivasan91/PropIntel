@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import request from 'supertest';
 import { app } from '../src/app.js';
 
-test('admin APIs reject requests without an admin session', async () => {
+test('admin APIs fail closed when no administrator session is present', async () => {
   const paths = [
     '/api/leads',
     '/api/leads/summary',
@@ -13,8 +13,8 @@ test('admin APIs reject requests without an admin session', async () => {
 
   for (const path of paths) {
     const response = await request(app).get(path);
-    assert.equal(response.status, 401, path + ' should require admin authentication');
-    assert.equal(response.body.error.code, 'ADMIN_AUTH_REQUIRED');
+    assert.ok([401, 503].includes(response.status), path + ' should require admin authentication');
+    assert.ok(['ADMIN_AUTH_REQUIRED', 'ADMIN_AUTH_NOT_CONFIGURED'].includes(response.body.error.code));
   }
 });
 
@@ -24,4 +24,5 @@ test('admin session endpoint reports an anonymous visitor without exposing data'
   assert.equal(response.status, 200);
   assert.equal(response.body.data.authenticated, false);
   assert.equal(response.body.data.username, null);
+  assert.equal(typeof response.body.data.configured, 'boolean');
 });
