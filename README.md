@@ -1,179 +1,100 @@
-# PropIntel
+# PropIntel — AI-assisted real-estate lead intelligence
 
-PropIntel is a small AI-assisted workspace for real-estate salespeople. It helps a salesperson capture customer enquiries, understand each lead, prioritize follow-ups and record the next action.
+PropIntel helps a real-estate salesperson capture customer enquiries, understand each lead, prioritize follow-ups, and manage the next action from one workspace.
 
-> Built for the Masal AI – AI FDE Intern (Round 2) assignment. The workspace and company data are fictional demo content.
+> Built for the **Masal AI — AI FDE Intern (Round 2)** assignment. Northstar Homes, its policies, and the sample leads are fictional demonstration data.
+
+## Demo
+
+| | |
+|---|---|
+| **Customer enquiry page** | [https://propintel.iamkeerthivasan.in](https://propintel.iamkeerthivasan.in) |
+| **Salesperson workspace** | [https://propintel.iamkeerthivasan.in/admin](https://propintel.iamkeerthivasan.in/admin) |
+| **Admin username** | `admin` |
+| **Demo password** | `PropIntel2026` |
+| **Source code** | [github.com/keerthivasan91/PropIntel](https://github.com/keerthivasan91/PropIntel) |
+
+The demo login is intentionally shared for assignment evaluation. It is for this synthetic-data demo only; do not reuse it for real customer information or a production business. Rotate it after evaluation. The public enquiry page can submit a lead; customer records and the internal workspace require admin authentication.
 
 ## What it does
 
-- Provides a public Northstar Homes property enquiry page. Customer submissions are stored as new leads; the public endpoint cannot list or retrieve customer records.
-- Provides a single-admin sign-in and a protected internal workspace with a collapsible sidebar, lead details tabs and a dedicated lead-scoped AI Assistant.
-- Captures multiple leads with customer name, location, property requirement, budget, buying timeline and a free-text enquiry.
-- Uses a real Gemini API call to produce a lead summary, customer intent, requirements, objections, recommended next action and a suggested customer response.
-- Calculates a separate, explainable lead score out of 100 and labels each analysed lead Hot, Warm or Cold.
-- Ranks the lead list by the latest saved AI score. Leads without an analysis appear after analysed leads.
-- Provides a lead-specific assistant grounded in the selected lead, its latest analysis, saved conversation history and fictional Northstar Homes policies.
-- Saves conversation history per lead.
-- Includes a Sales Action Workspace for follow-up tasks, due dates, status management and an activity timeline.
-- Lets a salesperson copy an AI recommendation into a task draft, review or edit it, and explicitly confirm task creation.
+- **Public lead intake:** captures name, location, property requirement, budget range, buying timeline, and the customer's message.
+- **Protected salesperson workspace:** single-admin login, lead overview, lead list, search and filters, and lead detail tabs.
+- **Gemini lead analysis:** generates a summary, customer intent, key requirements, objections or concerns, recommended next action, and suggested customer response.
+- **Lead prioritization:** calculates a separate explainable score out of 100 and assigns Hot, Warm, or Cold priority. Analysed leads are ranked by their latest saved score.
+- **Lead-specific AI Assistant:** answers salesperson questions using the selected lead, its latest analysis, saved conversation history, and the fictional company policy documents.
+- **Sales Action Workspace:** creates and tracks follow-up tasks, due dates, status, and lead activity.
+- **Human-reviewed AI handoff:** copies an AI recommendation into a task draft. A salesperson reviews and confirms before the task is saved.
 
-AI output is advisory. PropIntel does not automatically change a lead, create a task or send a customer message.
+AI output is advisory. PropIntel does not automatically change a lead, create a task, or send a customer message.
+
+## Product walkthrough
+
+1. A customer submits a property enquiry on the public page.
+2. The salesperson signs in at `/admin` and opens the new lead.
+3. The salesperson requests a Gemini analysis and reviews the six structured fields.
+4. The salesperson asks the lead-specific assistant a follow-up question.
+5. The salesperson uses the AI recommendation as a draft, edits it, and explicitly creates a follow-up task.
+
+See [docs/demo-script.md](docs/demo-script.md) for a timed walkthrough of up to three minutes.
 
 ## Architecture
 
+### Application components
+
+- **Frontend — `client/`:** React 19 and Vite. Includes the public enquiry page, admin login, lead workspace, AI assistant, and task workspace.
+- **Backend — `server/`:** Node.js and Express 5. Handles validation, authentication, lead operations, Gemini requests, scoring, tasks, and persistence.
+- **Database — `database/`:** MySQL schema and fictional sample data.
+- **Company context — `server/src/knowledge/company/`:** fictional company profile, sales policies, communication guidance, and escalation rules.
+
+### Azure deployment topology
+
+The deployed Compose project is named `propintel`. It has its own API, frontend, MySQL service, network, and persistent MySQL volume.
+
 ```mermaid
 flowchart TD
-    C[Customer] --> PUBLIC[Public React enquiry page]
-    PUBLIC --> INTAKE[POST public enquiry endpoint]
-    A[Administrator] --> LOGIN[Single-admin sign-in]
-    LOGIN --> ADMIN[Protected React admin workspace]
-    ADMIN --> PROTECTED[Admin-only Express API]
-    INTAKE --> API[Express REST API]
-    PROTECTED --> API
-    API --> DB[(MySQL)]
-    API --> POLICY[Northstar Homes demo policies]
-    API --> SDK[Google Gen AI JavaScript SDK]
-    SDK --> GEMINI[Gemini API]
-    API --> SCORE[Deterministic lead scoring]
-    SCORE --> DB
+    VISITOR[Customer or salesperson browser] --> TLS[Host Nginx / HTTPS]
+    TLS -->|/| WEB[PropIntel web container :5052]
+    TLS -->|/api/| API[PropIntel API container :5051]
+    WEB --> API
+    API --> DB[(PropIntel MySQL container)]
+    API --> GEMINI[Google Gemini API]
 ```
 
-### Main components
+- Host Nginx routes the website to `127.0.0.1:5052` and `/api/` requests to `127.0.0.1:5051`.
+- The API and frontend ports are published on host loopback only. MySQL is not published to the host.
+- The database uses a dedicated Compose volume, `propintel_mysql_data`.
+- Compose resource limits are set for the database, API, and frontend to reduce impact on other workloads on the VM.
+- The Azure VM also hosts SpectraSpatialAI as a separate Compose project. PropIntel uses a separate Compose project and does not share its containers, database volume, or application credentials.
 
-- **Frontend – `client/`:** Public property enquiry page, admin login, protected sales workspace, lead list and detail tabs, contextual AI assistant and task management.
-- **Backend – `server/`:** Express routes, request validation, business services, Gemini integration, lead scoring and database access.
-- **Company context – `server/src/knowledge/company/`:** Fictional company profile, sales policies, communication guidance and escalation rules used by the AI assistant.
-- **Database – `database/schema.sql`:** MySQL schema for leads, analyses, conversations, follow-up tasks and lead activities.
+See [docs/architecture.md](docs/architecture.md) and [docs/deployment.md](docs/deployment.md).
 
-### Main data tables
+## AI implementation
 
-| Table | Purpose |
-|---|---|
-| `leads` | Customer requirements and lead status |
-| `lead_analyses` | Versioned Gemini analysis and deterministic score |
-| `conversations` | Saved user and assistant messages per lead |
-| `follow_up_tasks` | Salesperson-confirmed tasks and due dates |
-| `lead_activities` | Lead, analysis and task activity history |
+PropIntel uses the official Google Gen AI JavaScript SDK (`@google/genai`) to call Gemini from the backend. The model is configured using `GEMINI_MODEL` (demo default: `gemini-3.5-flash-lite`).
 
-### AI request flow
+### Lead analysis
 
-1. The backend loads the selected lead and fictional company context.
-2. It sends the prompt to Gemini using the official `@google/genai` SDK and the configured `GEMINI_MODEL`.
-3. Gemini is asked to return structured JSON for the six requested analysis fields.
-4. The backend parses and validates the response before returning or storing it.
-5. The backend calculates the score independently; Gemini does not choose the numeric score or priority band.
-6. For chat, the backend also loads the latest analysis and up to 12 recent messages belonging to that lead. Full conversation history remains in MySQL.
+1. Load the selected lead and the fictional Northstar Homes context.
+2. Send the lead details and approved context to Gemini.
+3. Request structured JSON containing the six analysis fields.
+4. Parse and validate the response on the backend.
+5. Calculate the priority score independently using deterministic rules.
+6. Save the analysis version, score, and activity in MySQL.
 
-The Gemini API key is used only by the backend. It must never be placed in a `VITE_*` variable or committed to Git.
+### Contextual assistant
 
-## Technology
+Each chat request is grounded in the selected lead, its latest analysis, the fictional policy documents, and up to 12 recent messages for that lead. Conversation messages are persisted per lead in MySQL. The assistant is restricted to the real-estate sales-support use case and can return decisions such as allowed, out of scope, needs policy clarification, or escalate.
 
-- React 19 and Vite
-- Node.js and Express 5
-- MySQL 8+
-- Google Gen AI JavaScript SDK (`@google/genai`) and Gemini
-- Node.js built-in test runner and GitHub Actions
+The model cannot set the numeric lead score, change lead status, create tasks, or send messages to customers. A salesperson remains responsible for every action.
 
-## Run locally (Windows PowerShell)
+More detail: [docs/ai-design.md](docs/ai-design.md).
 
-### Prerequisites
+## Lead scoring
 
-- Node.js 20.19 or newer
-- npm (included with Node.js)
-- MySQL 8+
-- A Gemini API key from Google AI Studio
+The score is a deterministic backend heuristic, not an LLM-generated value or a prediction of purchase probability.
 
-### 1. Clone and install
-
-```powershell
-git clone https://github.com/keerthivasan91/PropIntel.git
-cd PropIntel
-npm install
-```
-
-The root `package.json` defines npm workspaces for `client` and `server`. Run installation commands from the repository root.
-
-### 2. Configure the backend
-
-```powershell
-Copy-Item .\server\.env.example .\server\.env
-```
-
-Open `server/.env` and set the values for your local environment:
-
-| Variable | Purpose |
-|---|---|
-| `NODE_ENV` | Runtime mode; use `development` locally |
-| `PORT` | Express API port; default `5000` |
-| `CLIENT_ORIGINS` | Comma-separated allowed frontend origins; default local Vite origin |
-| `MYSQL_HOST` | MySQL host |
-| `MYSQL_PORT` | MySQL port; default `3306` |
-| `MYSQL_USER` | MySQL username |
-| `MYSQL_PASSWORD` | MySQL password |
-| `MYSQL_DATABASE` | Database name; use `propintel` |
-| `MYSQL_CONNECTION_LIMIT` | MySQL connection-pool size |
-| `GEMINI_API_KEY` | Gemini API key; backend only |
-| `GEMINI_MODEL` | Gemini model ID; default `gemini-3.5-flash-lite` |
-| `ADMIN_USERNAME` | Single admin username; default `admin` |
-| `ADMIN_PASSWORD` | Single admin password; any non-empty value is accepted (use `root` for the local demo) |
-| `SESSION_SECRET` | Random HMAC signing secret with at least 32 characters; do not reuse a public placeholder |
-
-The checked-in example uses `gemini-3.5-flash-lite`, which was tested during development. Use a model enabled for the API key you configure.
-
-Set the single administrator credentials in `server/.env`. Generate a unique session secret in PowerShell, for example:
-
-```powershell
-$bytes = New-Object byte[] 32
-$rng = [Security.Cryptography.RandomNumberGenerator]::Create()
-$rng.GetBytes($bytes)
-[Convert]::ToBase64String($bytes)
-$rng.Dispose()
-```
-
-Use the output as `SESSION_SECRET`. For this local demo, set `ADMIN_PASSWORD=root` (or use any other non-empty value). The API does not enforce password complexity. Do not commit the real `server/.env` file; the checked-in placeholder values are intentionally rejected.
-
-### 3. Create the database
-
-Run from the repository root:
-
-```powershell
-Get-Content .\database\schema.sql | mysql -u root -p
-```
-
-Optional: load fictional sample leads once:
-
-```powershell
-Get-Content .\database\seed.sql | mysql -u root -p propintel
-```
-
-The schema creates the five tables listed above. No additional migration is required for the AI-recommendation-to-task workflow.
-
-### 4. Start frontend and backend
-
-```powershell
-npm run dev
-```
-
-- Customer property enquiry page: http://localhost:5173/
-- Admin sign-in and sales workspace: http://localhost:5173/admin
-- API health: http://localhost:5000/api/health
-- Database readiness: http://localhost:5000/api/health/ready
-
-### Useful commands
-
-```powershell
-npm test
-npm run build
-```
-
-- `npm test` runs the backend's Node.js tests.
-- `npm run build` creates the production frontend bundle in `client/dist`.
-
-## Lead prioritization
-
-The backend score is a deterministic heuristic with a maximum of 100 points:
-
-| Signal | Maximum |
+| Signal | Maximum points |
 |---|---:|
 | Buying timeline | 30 |
 | Budget clarity | 25 |
@@ -181,106 +102,191 @@ The backend score is a deterministic heuristic with a maximum of 100 points:
 | Engagement signals | 20 |
 | **Total** | **100** |
 
-Priority bands are Hot (75–100), Warm (45–74) and Cold (0–44). The lead list uses the latest saved analysis for each lead, sorts by score descending and shows unanalysed leads last. The score is an internal sorting aid, not a purchase probability or sales forecast.
+Priority bands:
+- **Hot:** 75–100
+- **Warm:** 45–74
+- **Cold:** 0–44
 
-See [docs/lead-scoring.md](docs/lead-scoring.md) for the actual rules and limitations.
+The lead list uses the latest saved analysis, sorts by score descending, and places unanalysed leads last. See [docs/lead-scoring.md](docs/lead-scoring.md).
 
-## Human-reviewed AI recommendation
+## Technology
 
-The AI analysis includes a recommended next action. In the lead details, the salesperson can select **Use AI recommendation** to copy that text into the existing task form. The salesperson can edit the title and description, choose a due date, and then select **Create task**.
+- React 19, Vite 8
+- Node.js 22 container, Express 5
+- MySQL 8
+- Google Gen AI JavaScript SDK and Gemini
+- Docker Compose
+- Nginx and Certbot for the public hostname
+- Node.js built-in test runner and GitHub Actions
 
-The existing task endpoint saves the confirmed task and records an activity event. This is a human-reviewed handoff, not an autonomous agent. It does not add a database table or automatically communicate with the customer.
+## Run locally
+
+### Prerequisites
+
+- Node.js 20.19 or newer
+- npm
+- MySQL 8+
+- Gemini API key from Google AI Studio
+
+### 1. Clone and install
+
+```bash
+git clone https://github.com/keerthivasan91/PropIntel.git
+cd PropIntel
+npm install
+```
+
+### 2. Configure the backend
+
+Copy the example file:
+
+```bash
+cp server/.env.example server/.env
+```
+
+Set these values in `server/.env` for local development:
+
+| Variable | Local value / purpose |
+|---|---|
+| `NODE_ENV` | `development` |
+| `PORT` | `5000` |
+| `CLIENT_ORIGINS` | `http://localhost:5173` |
+| `MYSQL_HOST` | `127.0.0.1` |
+| `MYSQL_PORT` | `3306` |
+| `MYSQL_USER`, `MYSQL_PASSWORD` | Your local MySQL account |
+| `MYSQL_DATABASE` | `propintel` |
+| `GEMINI_API_KEY` | Your Gemini API key |
+| `GEMINI_MODEL` | `gemini-3.5-flash-lite` |
+| `ADMIN_USERNAME` | `admin` |
+| `ADMIN_PASSWORD` | A non-empty local-only password |
+| `SESSION_SECRET` | Random secret with at least 32 characters |
+
+Never commit the real `server/.env` file. The Gemini key is backend-only and must not be put in a `VITE_*` variable.
+
+### 3. Create the database and optional sample data
+
+```bash
+mysql -u root -p < database/schema.sql
+mysql -u root -p propintel < database/seed.sql
+```
+
+The seed file inserts three fictional leads: Aarav Mehta, Nisha Rao, and Kabir Sharma. Run it only once on a fresh demo database.
+
+### 4. Run and test
+
+```bash
+npm run dev
+```
+
+- Public enquiry page: [http://localhost:5173](http://localhost:5173)
+- Admin workspace: [http://localhost:5173/admin](http://localhost:5173/admin)
+- API health: [http://localhost:5000/api/health](http://localhost:5000/api/health)
+- Database readiness: [http://localhost:5000/api/health/ready](http://localhost:5000/api/health/ready)
+
+In a separate terminal:
+
+```bash
+npm test
+npm run build
+```
+
+## Docker deployment
+
+The repository includes a separate Docker Compose stack.
+
+1. Create a root `.env` containing `MYSQL_PASSWORD` and `MYSQL_ROOT_PASSWORD`.
+2. Create `server/.env` with production values. Set `MYSQL_HOST=db`, `MYSQL_USER=propintel_app`, and `MYSQL_PASSWORD` to the same application database password in the root `.env`. Configure `GEMINI_API_KEY`, `SESSION_SECRET`, and admin credentials there.
+3. Start the stack:
+
+```bash
+docker compose config --quiet
+docker compose up -d --build
+docker compose ps
+```
+
+The Compose file initializes the schema when the MySQL data volume is first created. To load the fictional sample leads after the database is healthy, run:
+
+```bash
+docker compose exec -T db sh -c 'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"' < database/seed.sql
+```
+
+Useful operational commands:
+
+```bash
+docker compose logs --tail=100 api
+docker compose logs --tail=100 web
+docker compose logs --tail=100 db
+curl http://127.0.0.1:5051/api/health
+curl http://127.0.0.1:5051/api/health/ready
+```
+
+For the Azure Nginx and HTTPS configuration, see [docs/deployment.md](docs/deployment.md).
 
 ## API overview
 
-### Public intake
+All endpoints use the `/api` base path.
 
-- `POST /api/public/enquiries` – accept a public property enquiry; the server sets its status to New and returns a reference number
+| Area | Endpoint | Purpose |
+|---|---|---|
+| Public intake | `POST /api/public/enquiries` | Submit a customer enquiry |
+| Authentication | `GET /api/auth/me` | Check admin session |
+| Authentication | `POST /api/auth/login` | Sign in |
+| Authentication | `POST /api/auth/logout` | Sign out |
+| Leads | `GET /api/leads` | List and filter leads |
+| Leads | `POST /api/leads` | Create lead from admin |
+| Leads | `GET /api/leads/:id` | Retrieve a lead |
+| Leads | `PATCH /api/leads/:id` | Update lead |
+| AI | `POST /api/leads/:id/analyze` | Generate lead analysis |
+| AI | `POST /api/leads/:id/chat` | Ask lead-specific assistant |
+| AI | `GET /api/leads/:id/analyses` | Get analysis history |
+| AI | `GET /api/leads/:id/conversations` | Get saved conversation |
+| Tasks | `POST /api/leads/:id/tasks` | Create a reviewed follow-up |
+| Tasks | `GET /api/tasks` | Filter follow-up tasks |
+| Tasks | `PATCH /api/tasks/:id` | Update task |
+| Activity | `GET /api/leads/:id/activities` | View lead activity |
 
-### Authentication
+Lead, analysis, conversation, and task endpoints require a valid admin session. See [docs/api-contract.md](docs/api-contract.md) for request and response details.
 
-- `GET /api/auth/me` – check whether the browser has a valid admin session
-- `POST /api/auth/login` – sign in using the configured single administrator credentials
-- `POST /api/auth/logout` – clear the admin session cookie
+## Security, privacy, and limitations
 
-### Leads (admin session required)
+- The public form can create an enquiry but cannot list, read, search, or update customer records.
+- Internal API routes require a signed, HttpOnly, SameSite=Strict admin session. Sessions expire after eight hours and login attempts are rate-limited.
+- Public intake has its own rate limit and accepts only customer enquiry fields; the backend sets the initial status.
+- Use synthetic data only. Do not enter real customer details, personal information, or confidential business information.
+- Northstar Homes and its policy pack are fictional demo content and are not Masal AI policies.
+- AI-generated summaries, recommendations, and messages can be inaccurate. Verify facts and all customer-facing text.
+- The demo does not integrate with live property inventory, a CRM, calendar, WhatsApp, or calling system. It cannot confirm property availability or book site visits.
+- Authentication is single-admin only; there are no staff roles, account recovery, or multi-tenant accounts.
+- The lead score is a transparent heuristic, not a trained conversion model.
 
-- `GET /api/leads` – list, search and filter leads; returns latest AI priority and score, sorted by priority
-- `POST /api/leads` – create a lead
-- `GET /api/leads/summary` – summary counts by lead status
-- `GET /api/leads/:id` – get lead details
-- `PATCH /api/leads/:id` – update lead fields or status
+## Testing
 
-### AI
+- Backend: `npm test`
+- Frontend production build: `npm run build`
+- CI: [GitHub Actions](https://github.com/keerthivasan91/PropIntel/actions)
 
-- `POST /api/leads/:id/analyze` – generate and save a structured analysis
-- `GET /api/leads/:id/analyses` – retrieve analysis history
-- `POST /api/leads/:id/chat` – send a contextual assistant message
-- `GET /api/leads/:id/conversations` – retrieve saved messages
+The backend test suite contains 47 tests. The latest repository CI run completed successfully: [view latest workflow](https://github.com/keerthivasan91/PropIntel/actions).
 
-### Sales actions
-
-- `POST /api/leads/:id/tasks` – create a salesperson-confirmed task
-- `GET /api/leads/:id/tasks` – list tasks for a lead
-- `GET /api/leads/:id/activities` – retrieve the lead activity timeline
-- `GET /api/tasks` – search and filter tasks
-- `GET /api/tasks/summary` – task summary counts
-- `PATCH /api/tasks/:id` – update task details or status
-
-See [docs/api-contract.md](docs/api-contract.md) for request fields, filters and response details.
-
-## Key technical decisions
-
-- **Database persistence:** MySQL stores leads, analysis versions, conversations, tasks and activity events so the application survives restarts.
-- **Backend-owned AI calls:** the API key is not exposed to the browser.
-- **Structured AI output:** Gemini is asked for JSON and the backend validates it again before storing it.
-- **Explainable priority:** numeric scoring is calculated using explicit backend rules rather than trusting an LLM-generated score.
-- **Lead-scoped context:** chat history is loaded by lead ID, and only the most recent 12 messages are sent with each model request to bound prompt size.
-- **Human approval:** AI recommendations prefill a draft; a salesperson must review and create the task.
-- **Transactional activity history:** task creation and status changes save the task and its activity event in the same database transaction.
-
-## Security and demo data
-
-- The public `/` page accepts property enquiries only. It cannot read, search or retrieve customer records.
-- The admin workspace at `/admin` uses one configured administrator account. Set `ADMIN_USERNAME`, `ADMIN_PASSWORD` and `SESSION_SECRET` in `server/.env`; placeholder credentials are rejected.
-- Internal lead, AI, chat and task endpoints require a valid signed, HttpOnly, SameSite=Strict admin cookie. The session expires after eight hours, and login attempts are rate-limited.
-- The public enquiry endpoint has a separate rate limit and only accepts customer enquiry fields. The server always creates it with status `new`.
-- Use synthetic data only. Do not enter actual customer details, personal information or confidential business information.
-- Northstar Homes and its company policies are fictional demo content. They are not Masal AI policies.
-- Keep `server/.env` private and never commit API keys, admin passwords, session secrets or database credentials.
-- The browser does not receive the Gemini API key or administrator password.
-- AI responses can be inaccurate. Verify property facts, prices, availability and all customer-facing text before use.
-
-## Known limitations
-
-- The demo does not connect to a live property inventory, CRM, calendar, WhatsApp or calling system. It cannot confirm actual property availability or book site visits.
-- It is a text-based sales workflow; speech-to-text, text-to-speech and voice calling are outside this assignment's scope.
-- Authentication is intentionally limited to one administrator; there are no staff accounts, roles, password-reset flow or multi-tenant permissions. The public page does not provide customer login or enquiry-status tracking.
-- This is an assignment demo rather than a production CRM. Before real customer use, add account recovery, operational monitoring, data-retention controls, privacy/legal review and appropriate deployment hardening.
-- Lead scoring is a transparent heuristic, not a trained conversion model. Keyword signals can miss context or negation.
-- Gemini may return inaccurate content even when its response matches the required JSON schema.
-- Chat uses a bounded 12-message context window; full history is stored, but older turns are not included in each model request.
-- The demo company policy pack is fictional and limited to the included example documents.
-- Gemini usage is subject to API availability, rate limits and quota.
-
-## Troubleshooting
-
-- **API unavailable:** confirm the backend is running and open http://localhost:5000/api/health.
-- **Database not ready:** verify MySQL is running and that the MYSQL_* values in `server/.env` match the database you created.
-- **CORS error:** add the exact frontend origin to `CLIENT_ORIGINS`, then restart the backend.
-- **Admin sign-in not configured:** confirm `ADMIN_USERNAME`, a unique `ADMIN_PASSWORD` (any non-empty value; `root` works for the local demo) and a non-placeholder `SESSION_SECRET` (32+ characters) are set in `server/.env`, then restart the backend.
-- **AI not configured:** confirm `GEMINI_API_KEY` is set in `server/.env`; never add it to the frontend environment.
-- **Model or quota error:** check that `GEMINI_MODEL` is available to the configured API key and that the Google AI Studio project has available quota.
-
-## Manual acceptance and demo
-
-- [docs/manual-test-plan.md](docs/manual-test-plan.md) – end-to-end checks to run before submission.
-- [docs/demo-script.md](docs/demo-script.md) – suggested three-minute walkthrough.
+For end-to-end checks, see [docs/manual-test-plan.md](docs/manual-test-plan.md).
 
 ## AI usage disclosure
 
-ChatGPT (OpenAI) was used to help clarify the assignment scope, plan the implementation, generate and review code changes, debug issues, and prepare project documentation and test/demo checklists. The developer is responsible for reviewing the final code, running the checks, and understanding the implementation. Add any other AI tools actually used during development before submission; do not list tools that were not used.
+ChatGPT (OpenAI) was used as a helping hand to accelerate MVP development. It assisted with planning, generating and refining code, debugging, and preparing documentation. I reviewed and tested the implementation and am responsible for the final code and product decisions.
+
+## Repository structure
+
+```text
+PropIntel/
+├── client/                  # React + Vite frontend
+├── server/                  # Express API and Gemini integration
+├── database/
+│   ├── schema.sql           # MySQL tables
+│   └── seed.sql             # Fictional sample leads
+├── docs/                    # Architecture, AI, API, testing and demo docs
+├── docker-compose.yml       # Isolated production Compose stack
+└── README.md
+```
 
 ## License
 
-No license has been added. The repository is an assignment submission.
+No license has been added. This repository is an assignment submission.
