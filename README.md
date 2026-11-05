@@ -115,7 +115,7 @@ Open `server/.env` and set the values for your local environment:
 | `GEMINI_API_KEY` | Gemini API key; backend only |
 | `GEMINI_MODEL` | Gemini model ID; default `gemini-3.5-flash-lite` |
 | `ADMIN_USERNAME` | Single admin username; default `admin` |
-| `ADMIN_PASSWORD` | Single admin password; use a unique value with at least 12 characters |
+| `ADMIN_PASSWORD` | Single admin password; any non-empty value is accepted (use `root` for the local demo) |
 | `SESSION_SECRET` | Random HMAC signing secret with at least 32 characters; do not reuse a public placeholder |
 
 The checked-in example uses `gemini-3.5-flash-lite`, which was tested during development. Use a model enabled for the API key you configure.
@@ -130,7 +130,7 @@ $rng.GetBytes($bytes)
 $rng.Dispose()
 ```
 
-Use the output as `SESSION_SECRET`, set a unique `ADMIN_PASSWORD` (12+ characters), and do not commit the real `server/.env` file. The sample placeholder values are intentionally rejected by the API.
+Use the output as `SESSION_SECRET`. For this local demo, set `ADMIN_PASSWORD=root` (or use any other non-empty value). The API does not enforce password complexity. Do not commit the real `server/.env` file; the checked-in placeholder values are intentionally rejected.
 
 ### 3. Create the database
 
@@ -268,7 +268,7 @@ See [docs/api-contract.md](docs/api-contract.md) for request fields, filters and
 - **API unavailable:** confirm the backend is running and open http://localhost:5000/api/health.
 - **Database not ready:** verify MySQL is running and that the MYSQL_* values in `server/.env` match the database you created.
 - **CORS error:** add the exact frontend origin to `CLIENT_ORIGINS`, then restart the backend.
-- **Admin sign-in not configured:** confirm `ADMIN_USERNAME`, a unique `ADMIN_PASSWORD` (12+ characters) and a non-placeholder `SESSION_SECRET` (32+ characters) are set in `server/.env`, then restart the backend.
+- **Admin sign-in not configured:** confirm `ADMIN_USERNAME`, a unique `ADMIN_PASSWORD` (any non-empty value; `root` works for the local demo) and a non-placeholder `SESSION_SECRET` (32+ characters) are set in `server/.env`, then restart the backend.
 - **AI not configured:** confirm `GEMINI_API_KEY` is set in `server/.env`; never add it to the frontend environment.
 - **Model or quota error:** check that `GEMINI_MODEL` is available to the configured API key and that the Google AI Studio project has available quota.
 
