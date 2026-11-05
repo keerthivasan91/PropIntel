@@ -6,6 +6,8 @@ PropIntel is a small AI-assisted workspace for real-estate salespeople. It helps
 
 ## What it does
 
+- Provides a public Northstar Homes property enquiry page. Customer submissions are stored as new leads; the public endpoint cannot list or retrieve customer records.
+- Provides a single-admin sign-in and a protected internal workspace with a collapsible sidebar, lead details tabs and a dedicated lead-scoped AI Assistant.
 - Captures multiple leads with customer name, location, property requirement, budget, buying timeline and a free-text enquiry.
 - Uses a real Gemini API call to produce a lead summary, customer intent, requirements, objections, recommended next action and a suggested customer response.
 - Calculates a separate, explainable lead score out of 100 and labels each analysed lead Hot, Warm or Cold.
@@ -21,10 +23,15 @@ AI output is advisory. PropIntel does not automatically change a lead, create a 
 
 ```mermaid
 flowchart TD
-    S[Salesperson] --> UI[React + Vite]
-    UI --> API[Express REST API]
+    C[Customer] --> PUBLIC[Public React enquiry page]
+    PUBLIC --> INTAKE[POST public enquiry endpoint]
+    A[Administrator] --> LOGIN[Single-admin sign-in]
+    LOGIN --> ADMIN[Protected React admin workspace]
+    ADMIN --> PROTECTED[Admin-only Express API]
+    INTAKE --> API[Express REST API]
+    PROTECTED --> API
     API --> DB[(MySQL)]
-    API --> POLICY[Northstar Homes demo policy files]
+    API --> POLICY[Northstar Homes demo policies]
     API --> SDK[Google Gen AI JavaScript SDK]
     SDK --> GEMINI[Gemini API]
     API --> SCORE[Deterministic lead scoring]
@@ -33,7 +40,7 @@ flowchart TD
 
 ### Main components
 
-- **Frontend – `client/`:** React pages and components for lead intake, lead list, lead details, AI analysis, lead chat and task management.
+- **Frontend – `client/`:** Public property enquiry page, admin login, protected sales workspace, lead list and detail tabs, contextual AI assistant and task management.
 - **Backend – `server/`:** Express routes, request validation, business services, Gemini integration, lead scoring and database access.
 - **Company context – `server/src/knowledge/company/`:** Fictional company profile, sales policies, communication guidance and escalation rules used by the AI assistant.
 - **Database – `database/schema.sql`:** MySQL schema for leads, analyses, conversations, follow-up tasks and lead activities.
