@@ -1,52 +1,57 @@
 # Manual acceptance test plan
 
-Run these checks against a local copy before recording the demo. Use only the fictional sample leads in `database/seed.sql`.
+Use the fictional Northstar Homes sample records. Do not enter real customer information.
 
-## Setup
+## Local setup
 
-1. Follow the README to install dependencies, configure `server/.env`, create the database and load the seed data.
-2. Start the app with `npm run dev`.
-3. Confirm the API health endpoint responds and the browser reports the API as connected.
+1. Follow the README to install dependencies, configure `server/.env`, create the database, and optionally load the seed data.
+2. Start with `npm run dev`.
+3. Confirm `/api/health` responds and `/api/health/ready` reports a connected database.
+
+## Deployed smoke test
+
+- Open https://propintel.iamkeerthivasan.in and submit a synthetic enquiry.
+- Open https://propintel.iamkeerthivasan.in/admin and sign in with the demo credentials listed in the README.
+- Confirm the public page cannot retrieve lead records.
+- Confirm internal screens load and the API health/readiness endpoints respond.
 
 ## Acceptance checks
 
 | # | Area | Steps | Expected result |
 |---:|---|---|---|
-| 1 | Lead intake | Add a lead with all required fields and a budget range. Try a minimum budget greater than the maximum. | Valid lead is saved and appears in the list. Invalid budget range is rejected with a readable error. |
-| 2 | Multiple leads | Open the seeded Aarav, Nisha and Kabir records. | All three records can be opened independently. |
-| 3 | AI analysis | Analyse each seeded lead. Inspect the result. | Gemini returns summary, intent, requirements, objections, recommended action and suggested response. Analysis version and model are displayed. |
-| 4 | Priority ranking | Return to the lead list after analyses have completed. Compare scores and labels. | Leads appear in descending order of latest score. The score and Hot/Warm/Cold label are visible. Unanalysed leads appear after analysed leads. |
-| 5 | Priority refresh | Re-analyse a lead while its list page is open, then close the details. | The lead list refreshes and reflects the latest saved analysis score. |
-| 6 | Analysis history | Re-analyse a lead without changing its data. | A new version is saved and previous versions remain available. Similar or identical analysis text is acceptable when the input is unchanged. |
-| 7 | Contextual chat | Open Nisha and ask, “What are the customer's main requirements?” | Answer refers to Nisha's 2BHK, Sarjapur Road, budget and timeline rather than another lead. |
-| 8 | Policy guardrail | Ask whether a 10% discount can be promised. | Assistant does not invent approval and points to the relevant fictional company policy or authorized approval. |
-| 9 | Scope and prompt guardrails | Ask an unrelated Java question, then try a prompt-disclosure request. | Assistant declines requests outside the real-estate sales scope and does not reveal hidden instructions. |
-| 10 | Lead isolation | Open a different lead and ask about its requirements. | The answer uses the newly selected lead and does not reuse Nisha's private conversation context. |
-| 11 | Manual task | Create a task from the lead details, set a due date, then complete it. | Task appears against the correct lead and in Sales Action Workspace. Activity timeline records creation and completion. |
-| 12 | AI-to-task handoff | Select **Use AI recommendation**, edit the prefilled draft, then cancel it. Repeat and create the task. | Opening or cancelling the draft does not save a task. Only the explicit **Create task** action saves it. The saved task appears in the lead and global workspace. |
-| 13 | Task filters | Search by task or customer, change status and due-date filters, and navigate pages when available. | Results match the selected filters and pagination controls behave correctly. |
-| 14 | Provider failure | In a local test only, temporarily use an invalid Gemini key and try an AI request. Restore the valid key afterwards. | AI failure is shown as an application error; non-AI lead and task screens remain available. No failed assistant turn is stored as a successful answer. |
-
-| 15 | Public enquiry | Open `/`, submit the enquiry form and note the reference number. | The page confirms receipt. The record is created with status New and appears in the authenticated Leads page. |
-| 16 | Admin API protection | Open browser dev tools or call `GET /api/leads` without signing in. | The API returns 401 and no customer records. Health and public enquiry submission remain public. |
-| 17 | Admin login and logout | Open `/admin`, sign in using the configured values, then sign out. | Only the configured administrator can enter the workspace. The HTTP-only session cookie is cleared on logout. |
-| 18 | Sidebar controls | Collapse and expand the sidebar on desktop. Test the mobile menu at a narrow viewport and reload. | Desktop layout toggles between full sidebar and icon rail. Mobile navigation opens as a drawer. Desktop collapsed preference is remembered. |
-| 19 | Lead details and AI workspace | Open a lead, switch between Overview, AI Analysis and Activity & follow-ups, then select Ask AI. | Each tab shows its own content. The assistant opens with that lead selected and keeps its saved conversation history. |
+| 1 | Lead intake | Submit an enquiry with all required fields and a budget range. Try a minimum budget greater than the maximum. | Valid enquiry is saved and receives a reference. Invalid budget range is rejected. |
+| 2 | Multiple leads | Open the seeded Aarav, Nisha, and Kabir records. | All three records open independently. |
+| 3 | AI analysis | Analyse a seeded lead. | Gemini returns summary, intent, requirements, objections, recommended action, and suggested response. The saved analysis shows its version/model. |
+| 4 | Priority ranking | Analyse multiple leads and return to the list. | Leads are sorted by latest saved score. Hot/Warm/Cold labels are visible. Unanalysed leads appear last. |
+| 5 | Analysis history | Re-analyse a lead. | A new analysis version is stored and earlier versions remain available. |
+| 6 | Contextual chat | Open Nisha and ask: “What are the customer's main requirements?” | Answer references Nisha's selected lead details rather than another lead. |
+| 7 | Policy guardrail | Ask whether a 10% discount can be promised. | Assistant does not invent approval; it points to policy or recommends authorized approval. |
+| 8 | Scope and prompt guardrails | Ask an unrelated programming question and a prompt-disclosure question. | Assistant declines out-of-scope requests and does not reveal hidden instructions. |
+| 9 | Lead isolation | Select another lead and ask about its requirements. | Assistant uses the newly selected lead and does not reuse the previous lead's conversation context. |
+| 10 | Manual task | Create a task, set a due date, then complete it. | Task appears under the correct lead and workspace; activity records creation/completion. |
+| 11 | AI-to-task handoff | Select Use AI recommendation, edit the draft, cancel it, then create a task. | Cancel does not save. Only explicit Create task saves the task. |
+| 12 | Task filters | Search tasks and change status/due-date filters. | Results match the selected filters. |
+| 13 | Provider failure | In a local test only, temporarily use an invalid Gemini key and make an AI request. | AI error is handled; non-AI lead/task screens remain available. Restore the valid key afterwards. |
+| 14 | Public API boundary | Call `GET /api/leads` without signing in. | API returns 401 and no lead records. Public intake and health remain public. |
+| 15 | Login/logout | Sign in and sign out. | Configured admin can enter; logout clears the HttpOnly cookie. |
+| 16 | UI navigation | Collapse/expand desktop sidebar and test mobile navigation. | Desktop state toggles/retains preference; mobile drawer works. |
+| 17 | Lead details | Switch Overview, AI Analysis, Activity & follow-ups, and Ask AI. | Each section shows content for the selected lead. |
 
 ## Automated checks
 
-Run from the repository root:
+Run at the repository root:
 
-```powershell
+```bash
 npm test
 npm run build
 ```
 
-GitHub Actions should also complete its backend test and frontend build jobs after the changes are pushed.
+GitHub Actions runs the backend tests and frontend build for pushed changes.
 
-## Before sharing the demo
+## Before recording or sharing
 
-- Confirm the Gemini API key and database credentials are not committed.
-- Use the seeded fictional leads; do not use actual customer data.
-- Confirm the app is running from a fresh clone using only the README steps.
-- Confirm the browser console and backend terminal show no blocking errors during the demo.
+- Confirm the public demo URL and HTTPS certificate work.
+- Confirm no API keys, database passwords, or session secrets are committed.
+- Use only synthetic leads.
+- Verify a successful Gemini analysis and a saved task.
+- Do not show environment files or private credentials in the recording.
