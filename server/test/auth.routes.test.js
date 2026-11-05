@@ -4,7 +4,7 @@ import request from 'supertest';
 
 // Set isolated test credentials before app/config modules are imported.
 process.env.ADMIN_USERNAME = 'propintel-ci-admin';
-process.env.ADMIN_PASSWORD = 'propintel-ci-password-2026';
+process.env.ADMIN_PASSWORD = 'root';
 process.env.SESSION_SECRET = 'propintel-ci-session-secret-012345678901234567890123';
 
 const { app } = await import('../src/app.js');
@@ -41,7 +41,7 @@ test('admin can sign in and receive a secure HTTP-only session cookie', async ()
   const agent = request.agent(app);
   const login = await agent.post('/api/auth/login').send({
     username: 'propintel-ci-admin',
-    password: 'propintel-ci-password-2026'
+    password: 'root'
   });
 
   assert.equal(login.status, 200);
