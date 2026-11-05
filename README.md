@@ -116,7 +116,11 @@ The checked-in example uses `gemini-3.5-flash-lite`, which was tested during dev
 Set the single administrator credentials in `server/.env`. Generate a unique session secret in PowerShell, for example:
 
 ```powershell
--join ((1..48) | ForEach-Object { '{0:x}' -f (Get-Random -Maximum 16) })
+$bytes = New-Object byte[] 32
+$rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+$rng.GetBytes($bytes)
+[Convert]::ToBase64String($bytes)
+$rng.Dispose()
 ```
 
 Use the output as `SESSION_SECRET`, set a unique `ADMIN_PASSWORD` (12+ characters), and do not commit the real `server/.env` file. The sample placeholder values are intentionally rejected by the API.
