@@ -1313,3 +1313,197 @@ function AdminWorkspace({ onLogout }) {
     </div>
   );
 }
+
+
+
+function PublicEnquiryPage() {
+  const [form, setForm] = useState(emptyForm);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [reference, setReference] = useState('');
+
+  function updateField(event) {
+    const { name, value } = event.target;
+    setForm((current) => ({ ...current, [name]: value }));
+  }
+
+  async function submit(event) {
+    event.preventDefault();
+    setError('');
+    if (form.budget_min && form.budget_max && Number(form.budget_min) > Number(form.budget_max)) {
+      setError('Minimum budget cannot be greater than maximum budget.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const result = await submitPublicEnquiry({
+        ...form,
+        budget_min: form.budget_min === '' ? null : Number(form.budget_min),
+        budget_max: form.budget_max === '' ? null : Number(form.budget_max)
+      });
+      setReference(result.reference);
+      setForm(emptyForm);
+    } catch (submitError) {
+      setError(submitError.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="public-site">
+      <header className="public-header">
+        <a className="public-brand" href="/" aria-label="Northstar Homes home">
+          <span className="brand-mark"><Icon name="building" size={20} /></span>
+          <span><strong>Northstar Homes</strong><small>PROPERTY ENQUIRIES</small></span>
+        </a>
+        <a className="public-admin-link" href="/admin">Sales team sign in <Icon name="arrow" size={15} /></a>
+      </header>
+      <main className="public-main">
+        <section className="public-hero">
+          <span className="public-kicker">A MORE CONSIDERED WAY TO FIND HOME</span>
+          <h1>Tell us what you’re looking for.</h1>
+          <p>Share your location, budget and property requirements. Our sales team can review your enquiry and follow up with relevant information.</p>
+          <div className="public-proof-row"><span><Icon name="check" size={14} /> Personal follow-up</span><span><Icon name="check" size={14} /> Your requirements, clearly captured</span></div>
+        </section>
+        {reference ? (
+          <section className="public-success-card" role="status">
+            <span className="public-success-icon"><Icon name="check" size={24} /></span>
+            <span className="eyebrow">ENQUIRY RECEIVED</span>
+            <h2>Thank you for getting in touch.</h2>
+            <p>Your property enquiry has been submitted to the Northstar Homes demo team.</p>
+            <div className="public-reference"><small>REFERENCE NUMBER</small><strong>#{reference}</strong></div>
+            <button className="button-primary" type="button" onClick={() => setReference('')}>Submit another enquiry</button>
+          </section>
+        ) : (
+          <section className="public-form-card">
+            <div className="public-form-heading">
+              <div><span className="eyebrow">PROPERTY ENQUIRY</span><h2>What does your next home look like?</h2><p>Fields marked with * are required.</p></div>
+              <span className="public-form-step">01 <small>/ 01</small></span>
+            </div>
+            <form className="lead-form public-lead-form" onSubmit={submit}>
+              <div className="form-grid">
+                <label>Full name *
+                  <input name="name" autoComplete="name" maxLength="120" value={form.name} onChange={updateField} required placeholder="Your full name" />
+                </label>
+                <label>Preferred location *
+                  <input name="location" maxLength="160" value={form.location} onChange={updateField} required placeholder="e.g. Whitefield, Bengaluru" />
+                </label>
+                <label>Property requirement *
+                  <input name="property_requirement" maxLength="160" value={form.property_requirement} onChange={updateField} required placeholder="e.g. 3BHK apartment" />
+                </label>
+                <label>Buying timeline *
+                  <select name="buying_timeline" value={form.buying_timeline} onChange={updateField} required>
+                    <option>Immediately</option><option>Within 2 months</option><option>3 to 6 months</option><option>More than 6 months</option><option>Just exploring</option><option>Not specified</option>
+                  </select>
+                </label>
+                <label>Minimum budget (₹)
+                  <input name="budget_min" type="number" min="0" step="1" value={form.budget_min} onChange={updateField} placeholder="e.g. 9000000" />
+                </label>
+                <label>Maximum budget (₹)
+                  <input name="budget_max" type="number" min="0" step="1" value={form.budget_max} onChange={updateField} placeholder="e.g. 12000000" />
+                </label>
+                <label className="form-full">Tell us more *
+                  <textarea name="customer_message" maxLength="5000" value={form.customer_message} onChange={updateField} required rows="4" placeholder="Describe your preferences, requirements or questions…" />
+                  <small>{form.customer_message.length}/5000 characters</small>
+                </label>
+              </div>
+              {error && <div className="inline-error" role="alert">{error}</div>}
+              <div className="public-form-footer">
+                <p>Your information is used only to respond to this enquiry in this demo.</p>
+                <button className="button-primary" type="submit" disabled={saving}>{saving ? 'Submitting…' : 'Submit enquiry'} <Icon name="arrow" size={15} /></button>
+              </div>
+            </form>
+          </section>
+        )}
+        <section className="public-how">
+          <div><span className="public-step-number">1</span><strong>Share your requirements</strong><p>Tell us your preferred area, budget and timeline.</p></div>
+          <div><span className="public-step-number">2</span><strong>Our team reviews your enquiry</strong><p>The sales team can assess the details and prepare a follow-up.</p></div>
+          <div><span className="public-step-number">3</span><strong>Continue the conversation</strong><p>A team member can contact you to clarify your needs.</p></div>
+        </section>
+        <p className="public-demo-note">Northstar Homes is a fictional demonstration company. This page does not represent live property inventory or a real estate booking service.</p>
+      </main>
+      <footer className="public-footer"><span>© Northstar Homes · PropIntel demo</span><span>Enquiry management powered by PropIntel</span></footer>
+    </div>
+  );
+}
+
+function AdminLogin({ configured, initialError = '', onLogin }) {
+  const [username, setUsername] = useState('admin');
+  const [password, setPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(initialError);
+
+  async function submit(event) {
+    event.preventDefault();
+    setSubmitting(true);
+    setError('');
+    try {
+      await onLogin({ username, password });
+    } catch (loginError) {
+      setError(loginError.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="auth-page">
+      <a className="auth-brand" href="/"><span className="brand-mark"><Icon name="building" size={20} /></span><span><strong>PropIntel</strong><small>NORTHSTAR HOMES · ADMIN</small></span></a>
+      <main className="auth-card">
+        <div className="auth-icon"><Icon name="building" size={22} /></div>
+        <span className="eyebrow">RESTRICTED WORKSPACE</span>
+        <h1>Sign in to PropIntel</h1>
+        <p>Access lead records, AI analysis and sales follow-ups.</p>
+        {!configured && <div className="auth-config-message">Admin sign-in is not configured. Add <strong>ADMIN_USERNAME</strong>, <strong>ADMIN_PASSWORD</strong> (12+ characters) and <strong>SESSION_SECRET</strong> (32+ random characters) to <code>server/.env</code>, then restart the API.</div>}
+        <form onSubmit={submit} className="auth-form">
+          <label>Username<input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required disabled={!configured} /></label>
+          <label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required disabled={!configured} /></label>
+          {error && <div className="inline-error" role="alert">{error}</div>}
+          <button className="button-primary" type="submit" disabled={!configured || submitting || !username.trim() || !password}>{submitting ? 'Signing in…' : 'Sign in'} <Icon name="arrow" size={15} /></button>
+        </form>
+        <a className="auth-back-link" href="/">Return to customer enquiry page</a>
+      </main>
+      <p className="auth-demo-note">Single administrator account · Fictional demo workspace</p>
+    </div>
+  );
+}
+
+function AdminGate() {
+  const [session, setSession] = useState({ status: 'checking', authenticated: false, configured: false });
+  const [initialError, setInitialError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    checkAdminSession()
+      .then((result) => { if (active) setSession({ status: 'ready', ...result }); })
+      .catch((error) => {
+        if (active) {
+          setInitialError(error.message);
+          setSession({ status: 'ready', authenticated: false, configured: false });
+        }
+      });
+    return () => { active = false; };
+  }, []);
+
+  async function handleLogin(credentials) {
+    const result = await loginAdmin(credentials);
+    setSession({ status: 'ready', ...result, configured: true });
+  }
+
+  async function handleLogout() {
+    try { await logoutAdmin(); }
+    finally { window.history.replaceState({}, '', '/'); setSession({ status: 'ready', authenticated: false, configured: true }); }
+  }
+
+  if (session.status === 'checking') return <div className="auth-loading"><span className="loader" /> Checking administrator session…</div>;
+  if (!session.authenticated) return <AdminLogin configured={session.configured} initialError={initialError} onLogin={handleLogin} />;
+  return <AdminWorkspace onLogout={handleLogout} />;
+}
+
+export default function App() {
+  const path = window.location.pathname.replace(/\\/+$/, '') || '/';
+  return path === '/admin' || path.startsWith('/admin/')
+    ? <AdminGate />
+    : <PublicEnquiryPage />;
+}
