@@ -10,7 +10,7 @@
 
 ## Lead endpoints
 
-- GET /api/leads — list and filter leads
+- GET /api/leads — list and filter leads. Each lead includes `lead_score` and `priority` from its latest saved analysis; both are null before the first analysis. Results are ordered by score descending, with unanalysed leads last, then newest lead first as a tie-breaker.
 - POST /api/leads — create a lead
 - GET /api/leads/:id — retrieve a lead
 - PATCH /api/leads/:id — update lead fields and status
