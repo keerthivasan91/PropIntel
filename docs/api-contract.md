@@ -39,7 +39,7 @@ The public API does not expose list, read, search or update endpoints for custom
 - `POST /api/auth/login` — accepts `username` and `password`; returns a signed eight-hour HttpOnly, SameSite=Strict cookie on success. Login attempts are rate-limited.
 - `POST /api/auth/logout` — clears the admin cookie.
 
-The account is configured with `ADMIN_USERNAME`, `ADMIN_PASSWORD` (at least 12 characters) and `SESSION_SECRET` (at least 32 characters) in the backend environment. Never commit real values. A missing or placeholder configuration fails closed.
+The account is configured with `ADMIN_USERNAME`, `ADMIN_PASSWORD` (any non-empty value; `root` is accepted) and `SESSION_SECRET` (at least 32 random characters) in the backend environment. Never commit real values. A missing or placeholder configuration fails closed.
 
 All lead, analysis, conversation and task endpoints below require the admin session. Requests without a valid session receive `401 ADMIN_AUTH_REQUIRED`; an unconfigured admin account receives `503 ADMIN_AUTH_NOT_CONFIGURED`.
 
