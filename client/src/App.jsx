@@ -698,7 +698,7 @@ function SalesWorkspace({ onOpenLead }) {
   );
 }
 
-function LeadDetails({ lead, onClose, onStatusChange, updating }) {
+function LeadDetails({ lead, onClose, onStatusChange, updating, onAnalysisSaved }) {
   const [analyses, setAnalyses] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [analysisLoading, setAnalysisLoading] = useState(false);
@@ -729,6 +729,7 @@ function LeadDetails({ lead, onClose, onStatusChange, updating }) {
     try {
       const result = await analyzeLead(lead.id);
       setAnalyses((current) => [result.analysis, ...current]);
+      onAnalysisSaved?.();
     } catch (error) {
       setAnalysisError(error.message);
     } finally {
@@ -1195,7 +1196,7 @@ export default function App() {
       </main>
 
       {formOpen && <LeadForm onClose={() => setFormOpen(false)} onSubmit={handleCreateLead} saving={saving} />}
-      {selectedLead && <LeadDetails lead={selectedLead} onClose={() => setSelectedLead(null)} onStatusChange={handleStatusChange} updating={updating} />}
+      {selectedLead && <LeadDetails lead={selectedLead} onClose={() => setSelectedLead(null)} onStatusChange={handleStatusChange} updating={updating} onAnalysisSaved={loadLeads} />}
     </div>
   );
 }
