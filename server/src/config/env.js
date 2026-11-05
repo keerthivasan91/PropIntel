@@ -46,6 +46,9 @@ export const env = {
     .filter(Boolean),
   geminiApiKey: process.env.GEMINI_API_KEY ?? '',
   geminiModel: process.env.GEMINI_MODEL ?? 'gemini-3.5-flash-lite',
+  adminUsername: process.env.ADMIN_USERNAME ?? 'admin',
+  adminPassword: process.env.ADMIN_PASSWORD ?? '',
+  sessionSecret: process.env.SESSION_SECRET ?? '',
   databaseConfigured,
   database: databaseConfigured
     ? {
