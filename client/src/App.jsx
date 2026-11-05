@@ -1458,8 +1458,8 @@ function AdminLogin({ configured, initialError = '', onLogin }) {
         {initialError && <div className="inline-error" role="alert">{initialError}</div>}
         {!configured && !initialError && <div className="auth-config-message">Admin sign-in is not configured. Add <strong>ADMIN_USERNAME</strong>, <strong>ADMIN_PASSWORD</strong> (12+ characters) and <strong>SESSION_SECRET</strong> (32+ random characters) to <code>server/.env</code>, then restart the API.</div>}
         <form onSubmit={submit} className="auth-form">
-          <label>Username<input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required disabled={!configured} /></label>
-          <label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required disabled={!configured} /></label>
+          <label>Username<input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required disabled={configured === false} /></label>
+          <label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required disabled={configured === false} /></label>
           {error && <div className="inline-error" role="alert">{error}</div>}
           <button className="button-primary" type="submit" disabled={!configured || submitting || !username.trim() || !password}>{submitting ? 'Signing in…' : 'Sign in'} <Icon name="arrow" size={15} /></button>
         </form>
@@ -1481,7 +1481,7 @@ function AdminGate() {
       .catch((error) => {
         if (active) {
           setInitialError(error.message);
-          setSession({ status: 'ready', authenticated: false, configured: false });
+          setSession({ status: 'ready', authenticated: false, configured: null });
         }
       });
     return () => { active = false; };
