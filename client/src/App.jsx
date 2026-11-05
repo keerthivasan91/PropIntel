@@ -1493,7 +1493,7 @@ function AdminGate() {
 
   async function handleLogout() {
     try { await logoutAdmin(); }
-    finally { window.history.replaceState({}, '', '/'); setSession({ status: 'ready', authenticated: false, configured: true }); }
+    finally { setSession({ status: 'ready', authenticated: false, configured: true }); }
   }
 
   if (session.status === 'checking') return <div className="auth-loading"><span className="loader" /> Checking administrator session…</div>;
