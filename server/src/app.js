@@ -55,6 +55,13 @@ app.use('/api/public', publicRoutes);
 app.use('/api/leads', requireAdmin, leadRoutes);
 app.use('/api/leads', requireAdmin, analysisRoutes);
 app.use('/api/leads', requireAdmin, chatRoutes);
-app.use('/api', requireAdmin, taskRoutes);
+app.use('/api', (req, res, next) => {
+  // The task router also owns lead-scoped task/activity URLs, already protected
+  // by the /api/leads middleware above. Guard only its global /tasks routes here.
+  if (req.path === '/tasks' || req.path.startsWith('/tasks/')) {
+    return requireAdmin(req, res, next);
+  }
+  return next();
+}, taskRoutes);
 app.use(notFoundHandler);
 app.use(errorHandler);
