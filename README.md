@@ -261,6 +261,7 @@ See [docs/api-contract.md](docs/api-contract.md) for request fields, filters and
 - **API unavailable:** confirm the backend is running and open http://localhost:5000/api/health.
 - **Database not ready:** verify MySQL is running and that the MYSQL_* values in `server/.env` match the database you created.
 - **CORS error:** add the exact frontend origin to `CLIENT_ORIGINS`, then restart the backend.
+- **Admin sign-in not configured:** confirm `ADMIN_USERNAME`, a unique `ADMIN_PASSWORD` (12+ characters) and a non-placeholder `SESSION_SECRET` (32+ characters) are set in `server/.env`, then restart the backend.
 - **AI not configured:** confirm `GEMINI_API_KEY` is set in `server/.env`; never add it to the frontend environment.
 - **Model or quota error:** check that `GEMINI_MODEL` is available to the configured API key and that the Google AI Studio project has available quota.
 
