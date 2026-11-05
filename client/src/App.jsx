@@ -1502,7 +1502,7 @@ function AdminGate() {
 }
 
 export default function App() {
-  const path = window.location.pathname.replace(/\\/+$/, '') || '/';
+  const path = window.location.pathname.replace(/\/+$/, '') || '/';
   return path === '/admin' || path.startsWith('/admin/')
     ? <AdminGate />
     : <PublicEnquiryPage />;
