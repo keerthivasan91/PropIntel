@@ -8,6 +8,9 @@ import leadRoutes from './routes/lead.routes.js';
 import analysisRoutes from './routes/analysis.routes.js';
 import chatRoutes from './routes/chat.routes.js';
 import taskRoutes from './routes/task.routes.js';
+import authRoutes from './routes/auth.routes.js';
+import publicRoutes from './routes/public.routes.js';
+import { requireAdmin } from './middleware/requireAdmin.js';
 import { notFoundHandler } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
@@ -21,7 +24,8 @@ app.use(cors({
       return callback(null, true);
     }
     return callback(new Error('This origin is not allowed by the API CORS policy.'));
-  }
+  },
+  credentials: true
 }));
 app.use(express.json({ limit: '100kb' }));
 
@@ -44,9 +48,13 @@ app.get('/', (_req, res) => {
 
 app.use('/api', apiLimiter);
 app.use('/api', healthRoutes);
-app.use('/api/leads', leadRoutes);
-app.use('/api/leads', analysisRoutes);
-app.use('/api/leads', chatRoutes);
-app.use('/api', taskRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/public', publicRoutes);
+
+// All customer records and internal sales tools are protected at the API layer.
+app.use('/api/leads', requireAdmin, leadRoutes);
+app.use('/api/leads', requireAdmin, analysisRoutes);
+app.use('/api/leads', requireAdmin, chatRoutes);
+app.use('/api', requireAdmin, taskRoutes);
 app.use(notFoundHandler);
 app.use(errorHandler);
