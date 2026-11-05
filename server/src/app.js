@@ -18,7 +18,9 @@ export const app = express();
 
 // Trust only the local Nginx reverse proxy. This lets rate limiters use the
 // original client IP without trusting arbitrary forwarded headers from the internet.
-app.set('trust proxy', 'loopback');
+// In container deployments, the backend port is published on host loopback only,
+// so only the local Nginx reverse proxy can supply trusted forwarded headers.
+app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? true : 'loopback');
 
 app.disable('x-powered-by');
 app.use(helmet());
