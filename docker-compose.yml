@@ -35,6 +35,7 @@ services:
     environment:
       HOST: 0.0.0.0
       PORT: "5051"
+      TRUST_PROXY: "true"
       MYSQL_HOST: db
       MYSQL_PORT: "3306"
     depends_on:
