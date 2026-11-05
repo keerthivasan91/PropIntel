@@ -1151,11 +1151,21 @@ export default function App() {
                     <>
                       <div className="table-scroll">
                         <table className="leads-table">
-                          <thead><tr><th>Customer</th><th>Requirement</th><th>Budget</th><th>Timeline</th><th>Status</th><th>Added</th></tr></thead>
+                          <thead><tr><th>Customer</th><th>AI priority</th><th>Requirement</th><th>Budget</th><th>Timeline</th><th>Status</th><th>Added</th></tr></thead>
                           <tbody>
                             {leads.map((lead) => (
                               <tr key={lead.id}>
                                 <td><button className="customer-link" onClick={() => openLead(lead.id)} type="button"><strong>{lead.name}</strong><small><Icon name="pin" size={12} /> {lead.location}</small></button></td>
+                                <td>
+                                  {lead.priority ? (
+                                    <div className="lead-priority-cell" title="Priority is calculated from timeline, budget clarity, requirement clarity and engagement signals.">
+                                      <span className={'priority-label priority-' + lead.priority}>{lead.priority.toUpperCase()}</span>
+                                      <strong className="lead-score-value">{lead.lead_score}/100</strong>
+                                    </div>
+                                  ) : (
+                                    <span className="priority-not-analysed">Not analysed</span>
+                                  )}
+                                </td>
                                 <td>{lead.property_requirement}</td>
                                 <td className="budget-cell">{formatBudget(lead.budget_min, lead.budget_max)}</td>
                                 <td>{lead.buying_timeline}</td>
