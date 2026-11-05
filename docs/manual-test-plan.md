@@ -27,6 +27,12 @@ Run these checks against a local copy before recording the demo. Use only the fi
 | 13 | Task filters | Search by task or customer, change status and due-date filters, and navigate pages when available. | Results match the selected filters and pagination controls behave correctly. |
 | 14 | Provider failure | In a local test only, temporarily use an invalid Gemini key and try an AI request. Restore the valid key afterwards. | AI failure is shown as an application error; non-AI lead and task screens remain available. No failed assistant turn is stored as a successful answer. |
 
+| 15 | Public enquiry | Open `/`, submit the enquiry form and note the reference number. | The page confirms receipt. The record is created with status New and appears in the authenticated Leads page. |
+| 16 | Admin API protection | Open browser dev tools or call `GET /api/leads` without signing in. | The API returns 401 and no customer records. Health and public enquiry submission remain public. |
+| 17 | Admin login and logout | Open `/admin`, sign in using the configured values, then sign out. | Only the configured administrator can enter the workspace. The HTTP-only session cookie is cleared on logout. |
+| 18 | Sidebar controls | Collapse and expand the sidebar on desktop. Test the mobile menu at a narrow viewport and reload. | Desktop layout toggles between full sidebar and icon rail. Mobile navigation opens as a drawer. Desktop collapsed preference is remembered. |
+| 19 | Lead details and AI workspace | Open a lead, switch between Overview, AI Analysis and Activity & follow-ups, then select Ask AI. | Each tab shows its own content. The assistant opens with that lead selected and keeps its saved conversation history. |
+
 ## Automated checks
 
 Run from the repository root:
