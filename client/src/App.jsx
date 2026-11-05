@@ -1,7 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   analyzeLead,
+  checkAdminSession,
   createLead,
+  loginAdmin,
+  logoutAdmin,
+  submitPublicEnquiry,
   fetchLead,
   fetchLeadAnalyses,
   fetchLeadConversation,
@@ -78,6 +82,11 @@ function getInitialTheme() {
     // Storage may be unavailable.
   }
   return 'light';
+}
+
+function getInitialSidebarCollapsed() {
+  try { return localStorage.getItem('propintel-sidebar-collapsed') === 'true'; }
+  catch { return false; }
 }
 
 function formatBudget(minimum, maximum) {
@@ -698,11 +707,74 @@ function SalesWorkspace({ onOpenLead }) {
   );
 }
 
-function LeadDetails({ lead, onClose, onStatusChange, updating, onAnalysisSaved }) {
+function AssistantWorkspace({ initialLeadId, onOpenLead }) {
+  const [leads, setLeads] = useState([]);
+  const [selectedId, setSelectedId] = useState(initialLeadId ? String(initialLeadId) : '');
+  const [selectedLead, setSelectedLead] = useState(null);
+  const [loadingLeads, setLoadingLeads] = useState(true);
+  const [loadingLead, setLoadingLead] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    fetchLeads({ page: 1, limit: 50 })
+      .then((result) => {
+        if (!active) return;
+        const items = result.leads ?? [];
+        setLeads(items);
+        if (!selectedId && items.length) setSelectedId(String(items[0].id));
+      })
+      .catch((loadError) => { if (active) setError(loadError.message); })
+      .finally(() => { if (active) setLoadingLeads(false); });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedId) { setSelectedLead(null); return undefined; }
+    let active = true;
+    setLoadingLead(true);
+    fetchLead(selectedId)
+      .then((result) => { if (active) setSelectedLead(result.lead); })
+      .catch((loadError) => { if (active) setError(loadError.message); })
+      .finally(() => { if (active) setLoadingLead(false); });
+    return () => { active = false; };
+  }, [selectedId]);
+
+  return (
+    <>
+      <section className="lead-page-header">
+        <div><div className="eyebrow">LEAD-SCOPED CONVERSATIONS</div><h1>AI Assistant</h1><p className="page-subtitle">Ask questions using one selected lead, its latest analysis and Northstar Homes demo policies.</p></div>
+      </section>
+      <section className="content-card assistant-workspace-card">
+        <div className="assistant-lead-picker">
+          <label htmlFor="assistant-lead-select">Select a lead</label>
+          <select id="assistant-lead-select" value={selectedId} onChange={(event) => { setSelectedId(event.target.value); setError(''); }} disabled={loadingLeads || leads.length === 0}>
+            <option value="">Choose a customer enquiry</option>
+            {leads.map((item) => <option key={item.id} value={String(item.id)}>{item.name} · {item.location}</option>)}
+          </select>
+          {selectedLead && <button className="button-secondary" type="button" onClick={() => onOpenLead(selectedLead.id)}>View lead details</button>}
+        </div>
+        {error && <div className="error-banner" role="alert">{error}</div>}
+        {loadingLeads || loadingLead ? <div className="table-state"><span className="loader" /> Loading lead context…</div> :
+          selectedLead ? <>
+            <div className="assistant-context-card">
+              <div><span className="eyebrow">CURRENT CUSTOMER CONTEXT</span><strong>{selectedLead.name}</strong><p>{selectedLead.property_requirement} · {selectedLead.location}</p></div>
+              <div><small>Budget</small><strong>{formatBudget(selectedLead.budget_min, selectedLead.budget_max)}</strong></div>
+              <div><small>Buying timeline</small><strong>{selectedLead.buying_timeline}</strong></div>
+            </div>
+            <LeadChat key={selectedId} leadId={selectedId} />
+          </> : <div className="empty-state"><span className="empty-icon"><Icon name="sparkles" size={24} /></span><h2>{leads.length ? 'Choose a lead to begin' : 'No leads available yet'}</h2><p>{leads.length ? 'Conversation history is stored separately for each customer.' : 'Customer enquiries submitted through the public page will appear here.'}</p></div>}
+      </section>
+    </>
+  );
+}
+
+function LeadDetails({ lead, onClose, onStatusChange, updating, onAnalysisSaved, onOpenAssistant }) {
   const [analyses, setAnalyses] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysisError, setAnalysisError] = useState('');
+  const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
     let active = true;
@@ -746,17 +818,18 @@ function LeadDetails({ lead, onClose, onStatusChange, updating, onAnalysisSaved 
   ] : [];
 
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={(event) => {
-      if (event.target === event.currentTarget && !analysisLoading) onClose();
-    }}>
-      <section className="modal-card detail-modal" role="dialog" aria-modal="true" aria-labelledby="lead-detail-title">
+    <main className="lead-detail-page">
+      <section className="detail-page-card" aria-labelledby="lead-detail-title">
         <div className="modal-header">
           <div>
             <span className="eyebrow">LEAD DETAILS · #{lead.id}</span>
             <h2 id="lead-detail-title">{lead.name}</h2>
             <p>{lead.property_requirement} · {lead.location}</p>
           </div>
-          <button className="icon-button" type="button" onClick={onClose} aria-label="Close details" disabled={analysisLoading}><Icon name="close" /></button>
+          <div className="detail-heading-actions">
+            <button className="button-secondary" type="button" onClick={() => onOpenAssistant(lead.id)}><Icon name="sparkles" size={15} /> Ask AI</button>
+            <button className="icon-button" type="button" onClick={onClose} aria-label="Back to leads" disabled={analysisLoading}><Icon name="chevronLeft" /></button>
+          </div>
         </div>
 
         <div className="detail-grid">
@@ -766,11 +839,27 @@ function LeadDetails({ lead, onClose, onStatusChange, updating, onAnalysisSaved 
           <div><small>Current status</small><StatusBadge status={lead.status} /></div>
         </div>
 
-        <div className="message-panel">
-          <span className="eyebrow">CUSTOMER MESSAGE</span>
-          <p>{lead.customer_message}</p>
+        <div className="detail-tabs" role="tablist" aria-label="Lead sections">
+          <button type="button" role="tab" aria-selected={activeTab === 'overview'} className={activeTab === 'overview' ? 'active' : ''} onClick={() => setActiveTab('overview')}>Overview</button>
+          <button type="button" role="tab" aria-selected={activeTab === 'analysis'} className={activeTab === 'analysis' ? 'active' : ''} onClick={() => setActiveTab('analysis')}>AI Analysis</button>
+          <button type="button" role="tab" aria-selected={activeTab === 'activity'} className={activeTab === 'activity' ? 'active' : ''} onClick={() => setActiveTab('activity')}>Activity & follow-ups</button>
         </div>
 
+        {activeTab === 'overview' && (
+          <>
+            <div className="message-panel">
+              <span className="eyebrow">CUSTOMER MESSAGE</span>
+              <p>{lead.customer_message}</p>
+            </div>
+            <label className="detail-status-label">Update lead status
+              <select value={lead.status} disabled={updating} onChange={(event) => onStatusChange(lead.id, event.target.value)}>
+                {statuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </label>
+          </>
+        )}
+
+        {activeTab === 'analysis' && (
         <section className="analysis-panel">
           <div className="analysis-header">
             <div>
@@ -871,26 +960,22 @@ function LeadDetails({ lead, onClose, onStatusChange, updating, onAnalysisSaved 
 
           <p className="analysis-disclaimer">AI output may be inaccurate. Verify property facts and review suggested responses before using them. The priority score is an internal sorting aid, not a probability of purchase.</p>
         </section>
+        )}
 
-        <LeadTaskSection key={'tasks-' + lead.id} leadId={lead.id} recommendedAction={latest?.recommended_action ?? ''} />
-        <LeadChat key={lead.id} leadId={lead.id} />
-
-        <label className="detail-status-label">Update lead status
-          <select value={lead.status} disabled={updating} onChange={(event) => onStatusChange(lead.id, event.target.value)}>
-            {statuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>
-        </label>
-        <div className="modal-actions">
-          <button className="button-secondary" onClick={onClose} type="button">Close</button>
-        </div>
+        {activeTab === 'activity' && (
+          <LeadTaskSection key={'tasks-' + lead.id} leadId={lead.id} recommendedAction={latest?.recommended_action ?? ''} />
+        )}
       </section>
-    </div>
+    </main>
   );
 }
 
-export default function App() {
+function AdminWorkspace({ onLogout }) {
   const [theme, setTheme] = useState(getInitialTheme);
   const [page, setPage] = useState('overview');
+  const [assistantLeadId, setAssistantLeadId] = useState('');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(getInitialSidebarCollapsed);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [apiStatus, setApiStatus] = useState('checking');
   const [summary, setSummary] = useState(null);
   const [leads, setLeads] = useState([]);
@@ -914,6 +999,11 @@ export default function App() {
       // Current session theme remains active.
     }
   }, [theme]);
+
+  useEffect(() => {
+    try { localStorage.setItem('propintel-sidebar-collapsed', String(sidebarCollapsed)); }
+    catch { /* Keep the current-session layout when storage is unavailable. */ }
+  }, [sidebarCollapsed]);
 
   const loadSummary = useCallback(async () => {
     try {
@@ -983,9 +1073,28 @@ export default function App() {
     try {
       const result = await fetchLead(id);
       setSelectedLead(result.lead);
+      setPage('lead');
     } catch (loadError) {
       setError(loadError.message);
     }
+  }
+
+  function openAssistant(leadId = '') {
+    setAssistantLeadId(leadId ? String(leadId) : '');
+    setPage('assistant');
+    setSelectedLead(null);
+    setMobileSidebarOpen(false);
+  }
+
+  function navigate(nextPage) {
+    setPage(nextPage);
+    setNotice('');
+    setMobileSidebarOpen(false);
+  }
+
+  function toggleSidebar() {
+    if (window.matchMedia('(max-width: 800px)').matches) setMobileSidebarOpen((current) => !current);
+    else setSidebarCollapsed((current) => !current);
   }
 
   async function handleStatusChange(id, status) {
@@ -1011,7 +1120,7 @@ export default function App() {
   const wonLeads = summary?.byStatus?.won ?? '—';
 
   return (
-    <div className="app-shell">
+    <div className={'app-shell' + (sidebarCollapsed ? ' sidebar-collapsed' : '') + (mobileSidebarOpen ? ' mobile-sidebar-open' : '')}>
       <aside className="sidebar">
         <a className="brand" href="#overview" onClick={() => setPage('overview')} aria-label="PropIntel home">
           <span className="brand-mark"><Icon name="building" size={20} /></span>
@@ -1026,13 +1135,10 @@ export default function App() {
 
         <div className="nav-label">WORKSPACE</div>
         <nav className="navigation" aria-label="Main navigation">
-          <button className={'nav-item ' + (page === 'overview' ? 'active' : '')} onClick={() => { setPage('overview'); setNotice(''); }} type="button">
-            <Icon name="grid" /> <span>Overview</span>
-          </button>
-          <button className={'nav-item ' + (page === 'leads' ? 'active' : '')} onClick={() => { setPage('leads'); setNotice(''); }} type="button">
-            <Icon name="users" /> <span>Leads</span>
-          </button>
-          <button className={'nav-item ' + (page === 'sales' ? 'active' : '')} onClick={() => { setPage('sales'); setNotice(''); }} type="button"><Icon name="checklist" /> <span>Sales workspace</span></button>
+          <button className={'nav-item ' + (page === 'overview' ? 'active' : '')} onClick={() => navigate('overview')} type="button"><Icon name="grid" /> <span>Overview</span></button>
+          <button className={'nav-item ' + ((page === 'leads' || page === 'lead') ? 'active' : '')} onClick={() => navigate('leads')} type="button"><Icon name="users" /> <span>Leads</span></button>
+          <button className={'nav-item ' + (page === 'assistant' ? 'active' : '')} onClick={() => openAssistant()} type="button"><Icon name="sparkles" /> <span>AI Assistant</span></button>
+          <button className={'nav-item ' + (page === 'sales' ? 'active' : '')} onClick={() => navigate('sales')} type="button"><Icon name="checklist" /> <span>Sales workspace</span></button>
         </nav>
 
         <div className="sidebar-bottom">
@@ -1044,13 +1150,18 @@ export default function App() {
             <span className={'connection-dot ' + apiStatus} />
             <span>{apiStatus === 'checking' ? 'Checking API…' : apiStatus === 'connected' ? 'API connected' : 'API unavailable'}</span>
           </div>
+          <button className="sidebar-logout" type="button" onClick={onLogout}>Sign out</button>
           <div className="sidebar-footnote">PropIntel · Lead management</div>
         </div>
       </aside>
+      {mobileSidebarOpen && <button className="sidebar-backdrop" type="button" onClick={() => setMobileSidebarOpen(false)} aria-label="Close navigation" />}
 
       <main className="main-area">
         <header className="topbar">
-          <div className="breadcrumb"><span>Workspace</span><span className="breadcrumb-separator">/</span><strong>{page === 'overview' ? 'Overview' : page === 'leads' ? 'Leads' : 'Sales Action Workspace'}</strong></div>
+          <div className="topbar-leading">
+            <button className="sidebar-toggle" type="button" onClick={toggleSidebar} aria-label="Toggle navigation" title="Toggle navigation"><Icon name="grid" size={17} /></button>
+            <div className="breadcrumb"><span>Workspace</span><span className="breadcrumb-separator">/</span><strong>{page === 'overview' ? 'Overview' : page === 'leads' ? 'Leads' : page === 'lead' ? 'Lead details' : page === 'assistant' ? 'AI Assistant' : 'Sales Action Workspace'}</strong></div>
+          </div>
           <div className="topbar-actions">
             <span className="demo-tag"><span /> DEMO WORKSPACE</span>
             <button className="theme-toggle" onClick={toggleTheme} type="button" aria-label={'Switch to ' + (theme === 'light' ? 'dark' : 'light') + ' mode'} title="Toggle theme"><Icon name={theme === 'light' ? 'moon' : 'sun'} size={17} /></button>
@@ -1062,7 +1173,11 @@ export default function App() {
           {notice && <div className="notice-banner" role="status">{notice}<button onClick={() => setNotice('')} aria-label="Dismiss notice" type="button"><Icon name="close" size={15} /></button></div>}
           {error && <div className="error-banner" role="alert">{error}<button onClick={() => setError('')} aria-label="Dismiss error" type="button"><Icon name="close" size={15} /></button></div>}
 
-          {page === 'overview' ? (
+          {page === 'lead' && selectedLead ? (
+            <LeadDetails lead={selectedLead} onClose={() => { setSelectedLead(null); setPage('leads'); }} onStatusChange={handleStatusChange} updating={updating} onAnalysisSaved={loadLeads} onOpenAssistant={openAssistant} />
+          ) : page === 'assistant' ? (
+            <AssistantWorkspace initialLeadId={assistantLeadId} onOpenLead={openLead} />
+          ) : page === 'overview' ? (
             <>
               <section className="welcome-row">
                 <div>
@@ -1195,7 +1310,6 @@ export default function App() {
       </main>
 
       {formOpen && <LeadForm onClose={() => setFormOpen(false)} onSubmit={handleCreateLead} saving={saving} />}
-      {selectedLead && <LeadDetails lead={selectedLead} onClose={() => setSelectedLead(null)} onStatusChange={handleStatusChange} updating={updating} onAnalysisSaved={loadLeads} />}
     </div>
   );
 }
